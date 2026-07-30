@@ -1,12 +1,12 @@
 """Tests for divergence detector."""
 
-from semaflow import ContinuationPolicy, SemaFlowRuntime
-from semaflow.models.policy import DivergenceKind, ResumeMode
-from semaflow.models.state import ModelContext
+from semarun import ContinuationPolicy, SemarunRuntime
+from semarun.models.policy import DivergenceKind, ResumeMode
+from semarun.models.state import ModelContext
 
 
 def test_model_change_detection():
-    runtime = SemaFlowRuntime.in_memory()
+    runtime = SemarunRuntime.in_memory()
     run = runtime.create_run(
         intent="model test",
         model_context=ModelContext(model_family="gpt-4", model_version="2026-01"),
@@ -26,7 +26,7 @@ def test_model_change_detection():
 
 
 def test_user_instruction_change():
-    runtime = SemaFlowRuntime.in_memory()
+    runtime = SemarunRuntime.in_memory()
     run = runtime.create_run(intent="original intent", plan=["a", "b"])
     run.checkpoint()
     run.pause()
@@ -39,9 +39,9 @@ def test_user_instruction_change():
 
 
 def test_semantic_contradiction():
-    runtime = SemaFlowRuntime.in_memory()
+    runtime = SemarunRuntime.in_memory()
     run = runtime.create_run(intent="email test")
-    from semaflow.models.state import Fact, PendingAction
+    from semarun.models.state import Fact, PendingAction
 
     run.state.established_facts.append(Fact(fact="lead unsubscribed", source="crm", confidence=1.0))
     run.state.pending_actions.append(PendingAction(type="human_approval", action="send_email"))

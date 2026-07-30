@@ -4,23 +4,23 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from semaflow.divergence.detector import DivergenceDetector
-from semaflow.models.policy import (
+from semarun.divergence.detector import DivergenceDetector
+from semarun.models.policy import (
     ContinuationPolicy,
     ContinuationResult,
     DivergenceAction,
     DivergenceReport,
     ResumeMode,
 )
-from semaflow.models.state import AgentState, Checkpoint, ModelContext
-from semaflow.resume.modes import (
+from semarun.models.state import AgentState, Checkpoint, ModelContext
+from semarun.resume.modes import (
     action_to_mode,
     build_revalidation_checklist,
     resolve_resume_mode,
 )
 
 if TYPE_CHECKING:
-    from semaflow.audit.log import AuditLog
+    from semarun.audit.log import AuditLog
 
 
 class ResumeEngine:

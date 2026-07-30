@@ -8,16 +8,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from semaflow.checkpoint.engine import CheckpointEngine
-from semaflow.checkpoint.hashing import hash_tool_result
-from semaflow.checkpoint.triggers import CheckpointTrigger, should_checkpoint
-from semaflow.models.policy import (
+from semarun.checkpoint.engine import CheckpointEngine
+from semarun.checkpoint.hashing import hash_tool_result
+from semarun.checkpoint.triggers import CheckpointTrigger, should_checkpoint
+from semarun.models.policy import (
     ContinuationPolicy,
     ContinuationResult,
     DivergenceReport,
     ResumeMode,
 )
-from semaflow.models.state import (
+from semarun.models.state import (
     AgentState,
     ApprovalState,
     ApprovalStatus,
@@ -28,7 +28,7 @@ from semaflow.models.state import (
     StepType,
     ToolResultRef,
 )
-from semaflow.resume.engine import ResumeEngine
+from semarun.resume.engine import ResumeEngine
 
 
 class StateMutationError(RuntimeError):

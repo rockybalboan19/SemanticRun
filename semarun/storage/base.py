@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from semaflow.models.state import Checkpoint, RunRecord
+from semarun.models.state import Checkpoint, RunRecord
 
 
 class StorageBackend(Protocol):

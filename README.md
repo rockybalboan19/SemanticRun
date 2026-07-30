@@ -1,17 +1,17 @@
-# SemaFlow
+# Semarun
 
-**Durable execution replays your agent. SemaFlow remembers what it learned.**
+**Durable execution replays your agent. Semarun remembers what it learned.**
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![PyPI](https://img.shields.io/badge/PyPI-semaflow-blue)](https://pypi.org/project/semaflow/)
+[![PyPI](https://img.shields.io/badge/PyPI-semarun-blue)](https://pypi.org/project/semarun/)
 
 Semantic checkpointing runtime for long-running Python agents. Pause for hours, survive crashes and deploys, resume under a different model or tool result — without redoing completed work or corrupting intent.
 
 ```python
-from semaflow import SemaFlowRuntime, ContinuationPolicy
+from semarun import SemarunRuntime, ContinuationPolicy
 
-runtime = SemaFlowRuntime()
+runtime = SemarunRuntime()
 run = runtime.create_run(
     intent="Complete onboarding outreach sequence",
     plan=["research lead", "draft email", "request approval", "send email"],
@@ -39,7 +39,7 @@ action = run.apply_continuation(report)
 
 ```
 Naive restart (step 7 crash):  ████████  8 LLM calls
-SemaFlow resume:              █         1 LLM call
+Semarun resume:              █         1 LLM call
 ```
 
 ## The Problem
@@ -51,7 +51,7 @@ SemaFlow resume:              █         1 LLM call
 ## Performance & Overhead
 
 ```
-[SemaFlow Overhead Stats]
+[Semarun Overhead Stats]
   • Checkpoint Snapshot Latency:  ~1–8 ms (SQLite local write)
   • Memory Overhead:              < 4 MB resident set size
   • Token Savings on Resume:      Up to 98% of prior execution steps
@@ -59,29 +59,29 @@ SemaFlow resume:              █         1 LLM call
 
 *Measured locally on developer hardware. Benchmark scripts are not shipped in the public repo.*
 
-LLM API calls take **1,000–3,000+ ms**. SemaFlow adds **<10 ms** per step boundary — zero noticeable lag to the agent loop.
+LLM API calls take **1,000–3,000+ ms**. Semarun adds **<10 ms** per step boundary — zero noticeable lag to the agent loop.
 
-In an **8-step agent run where step 7 fails**, SemaFlow resumes from the last checkpoint, saving **~75%** of execution cost and time versus a full restart.
+In an **8-step agent run where step 7 fails**, Semarun resumes from the last checkpoint, saving **~75%** of execution cost and time versus a full restart.
 
-## Where SemaFlow Sits in the Stack
+## Where Semarun Sits in the Stack
 
 ### Layer 1 — Durable Execution Engines
 
-| Tool | Role | SemaFlow contrast |
+| Tool | Role | Semarun contrast |
 |------|------|-------------------|
 | **Temporal** | Distributed workflow orchestration with replay | Requires separate workers/server daemons; replay-first, not semantic |
-| **Restate** | Event-driven durable execution with journaled logs | Zero-infrastructure alternative: SemaFlow runs in-process, no external daemon |
+| **Restate** | Event-driven durable execution with journaled logs | Zero-infrastructure alternative: Semarun runs in-process, no external daemon |
 | **Prefect / Dagster** | Python data orchestrators (ETL, caching, retries) | Pipeline-scale orchestration vs fine-grained agent turn state + semantic hashing |
 | **Inngest** | Event-driven serverless step functions | Serverless workflow retries vs local-first semantic checkpointing |
 
-> Unlike heavy distributed orchestrators (Temporal, Restate) that require separate workers or server daemons, SemaFlow is an **in-process, zero-dependency Python runtime** for local-first agent state.
+> Unlike heavy distributed orchestrators (Temporal, Restate) that require separate workers or server daemons, Semarun is an **in-process, zero-dependency Python runtime** for local-first agent state.
 
 ### Layer 2 — Agent Frameworks & Orchestrators
 
-| Tool | Role | SemaFlow contrast |
+| Tool | Role | Semarun contrast |
 |------|------|-------------------|
 | **LangGraph** | Graph checkpointing + memory savers | Flexible checkpoint/divergence kernel for custom Python loops |
-| **PydanticAI** | Pydantic-native agent framework | Shared philosophy: strongly-typed state; SemaFlow is the durable runtime underneath |
+| **PydanticAI** | Pydantic-native agent framework | Shared philosophy: strongly-typed state; Semarun is the durable runtime underneath |
 | **CrewAI / AutoGen** | Multi-agent message orchestration | Deterministic state hashing + resumption beneath multi-agent conversations |
 | **LlamaIndex Workflows** | Event-driven agent execution loops | Plugs in as semantic state + drift handler |
 
@@ -89,25 +89,25 @@ In an **8-step agent run where step 7 fails**, SemaFlow resumes from the last ch
 
 ### Layer 3 — Storage, Memory, & Cache
 
-| Tool | Role | SemaFlow contrast |
+| Tool | Role | Semarun contrast |
 |------|------|-------------------|
 | **SQLite / DuckDB** | Local embedded databases | Primary default backend — zero-infra snapshot persistence |
-| **Mem0 / Zep** | Long-term semantic memory (RAG, chat history) | Mem0 = long-term user facts; SemaFlow = runtime execution state + tool checkpoints |
+| **Mem0 / Zep** | Long-term semantic memory (RAG, chat history) | Mem0 = long-term user facts; Semarun = runtime execution state + tool checkpoints |
 | **LMDB / RocksDB** | High-throughput KV stores | Future optional backend for ultra-fast filesystem persistence |
 | **Redis** | Generic KV cache | Code-level execution checkpoints with semantic hashing, not generic KV |
 
-> SemaFlow manages **runtime execution drift**—not long-term chat memory (like Mem0) or KV caching (like Redis). It bridges execution history directly to local disk (SQLite) or cloud stores.
+> Semarun manages **runtime execution drift**—not long-term chat memory (like Mem0) or KV caching (like Redis). It bridges execution history directly to local disk (SQLite) or cloud stores.
 
 ### Layer 4 — Serving & Observability
 
-| Tool | Role | SemaFlow contrast |
+| Tool | Role | Semarun contrast |
 |------|------|-------------------|
 | **SGLang / vLLM** | High-performance LLM serving (KV cache, RadixAttention) | Application-level equivalent: checkpoints Python code + tool states, not model KV tensors |
 | **Arize Phoenix / OpenInference** | Agent tracing + evaluation | Audit events align with OpenInference-style traces for time-travel debugging |
 
 ### Landscape / Alternatives
 
-| Category | Tool | How SemaFlow Differs |
+| Category | Tool | How Semarun Differs |
 |----------|------|----------------------|
 | Durable Execution | Temporal / Restate | Zero daemon processes; runs entirely in-process inside Python. |
 | Agent Frameworks | LangGraph / CrewAI | Framework-agnostic runtime kernel; focuses strictly on state & hashing logic. |
@@ -162,7 +162,7 @@ flowchart LR
 
 | Method | Purpose |
 |--------|---------|
-| `SemaFlowRuntime()` | Create runtime (SQLite default) |
+| `SemarunRuntime()` | Create runtime (SQLite default) |
 | `runtime.create_run(...)` | Start a new agent run |
 | `runtime.resume(run_id)` | Load latest checkpoint and resume |
 | `run.step(type, name=...)` | Context manager for step boundaries |
@@ -186,7 +186,7 @@ End-to-end demo: CRM lookup → LLM draft → approval gate → resume with tool
 ## Install & Development
 
 ```bash
-pip install semaflow
+pip install semarun
 # or from source:
 pip install -e ".[dev]"
 pytest

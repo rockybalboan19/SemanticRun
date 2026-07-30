@@ -1,7 +1,7 @@
-"""SemaFlow — semantic checkpointing runtime for long-running agents."""
+"""Semarun — semantic checkpointing runtime for long-running agents."""
 
-from semaflow.kernel.run_handle import RunHandle, StateMutationError
-from semaflow.models import (
+from semarun.kernel.run_handle import RunHandle, StateMutationError
+from semarun.models import (
     AgentState,
     Checkpoint,
     ContinuationPolicy,
@@ -13,7 +13,7 @@ from semaflow.models import (
     ResumeMode,
     RunStatus,
 )
-from semaflow.runtime import SemaFlowRuntime
+from semarun.runtime import SemarunRuntime
 
 __all__ = [
     "AgentState",
@@ -27,7 +27,7 @@ __all__ = [
     "ResumeMode",
     "RunHandle",
     "RunStatus",
-    "SemaFlowRuntime",
+    "SemarunRuntime",
     "StateMutationError",
 ]
 

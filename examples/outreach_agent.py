@@ -5,8 +5,8 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from semaflow import ContinuationPolicy, SemaFlowRuntime
-from semaflow.models.state import Fact
+from semarun import ContinuationPolicy, SemarunRuntime
+from semarun.models.state import Fact
 
 
 def mock_crm_lookup(lead_id: str) -> dict:
@@ -26,7 +26,7 @@ def mock_llm_draft(profile: dict) -> str:
 def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         db = Path(tmp) / "outreach.db"
-        runtime = SemaFlowRuntime(str(db))
+        runtime = SemarunRuntime(str(db))
         run = runtime.create_run(
             intent="Complete onboarding outreach sequence",
             plan=["research lead", "draft email", "request approval", "send email"],
@@ -64,7 +64,7 @@ def main() -> None:
         run_id = run.id
         runtime.close()
 
-        runtime2 = SemaFlowRuntime(str(db))
+        runtime2 = SemarunRuntime(str(db))
         resumed = runtime2.resume(run_id)
 
         changed_crm = mock_crm_lookup("lead_42")

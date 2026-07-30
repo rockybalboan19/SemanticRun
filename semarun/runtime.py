@@ -1,23 +1,23 @@
-"""SemaFlow runtime facade."""
+"""Semarun runtime facade."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
-from semaflow.audit.log import AuditLog
-from semaflow.checkpoint.engine import CheckpointEngine
-from semaflow.kernel.run_handle import RunHandle
-from semaflow.models.policy import ContinuationPolicy
-from semaflow.models.state import AgentState, ModelContext, RunRecord, RunStatus
-from semaflow.resume.engine import ResumeEngine
-from semaflow.storage.sqlite import SQLiteStorage
+from semarun.audit.log import AuditLog
+from semarun.checkpoint.engine import CheckpointEngine
+from semarun.kernel.run_handle import RunHandle
+from semarun.models.policy import ContinuationPolicy
+from semarun.models.state import AgentState, ModelContext, RunRecord, RunStatus
+from semarun.resume.engine import ResumeEngine
+from semarun.storage.sqlite import SQLiteStorage
 
 
-class SemaFlowRuntime:
+class SemarunRuntime:
     def __init__(
         self,
-        db_path: str = "semaflow.db",
+        db_path: str = "semarun.db",
         periodic_checkpoint_interval: int = 0,
     ) -> None:
         self._storage = SQLiteStorage(db_path)
@@ -105,5 +105,5 @@ class SemaFlowRuntime:
         self._storage.close()
 
     @classmethod
-    def in_memory(cls, periodic_checkpoint_interval: int = 0) -> SemaFlowRuntime:
+    def in_memory(cls, periodic_checkpoint_interval: int = 0) -> SemarunRuntime:
         return cls(db_path=":memory:", periodic_checkpoint_interval=periodic_checkpoint_interval)

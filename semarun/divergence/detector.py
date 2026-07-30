@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from semaflow.checkpoint.hashing import hash_tool_result
-from semaflow.models.policy import DivergenceEvent, DivergenceKind, DivergenceReport
-from semaflow.models.state import (
+from semarun.checkpoint.hashing import hash_tool_result
+from semarun.models.policy import DivergenceEvent, DivergenceKind, DivergenceReport
+from semarun.models.state import (
     ApprovalStatus,
     Checkpoint,
     ModelContext,

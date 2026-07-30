@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from semaflow.models.policy import ContinuationPolicy
-from semaflow.models.state import AgentState, Checkpoint, ModelContext, RunStatus
+from semarun.models.policy import ContinuationPolicy
+from semarun.models.state import AgentState, Checkpoint, ModelContext, RunStatus
 
 if TYPE_CHECKING:
-    from semaflow.audit.log import AuditLog
-    from semaflow.storage.base import StorageBackend
+    from semarun.audit.log import AuditLog
+    from semarun.storage.base import StorageBackend
 
 
 def build_summary(state: AgentState, status: RunStatus) -> str:

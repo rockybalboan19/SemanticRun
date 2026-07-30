@@ -1,11 +1,11 @@
 """Tests for resume engine and resume modes."""
 
-from semaflow import ContinuationPolicy, SemaFlowRuntime
-from semaflow.models.policy import ResumeMode
+from semarun import ContinuationPolicy, SemarunRuntime
+from semarun.models.policy import ResumeMode
 
 
 def test_transparent_resume():
-    runtime = SemaFlowRuntime.in_memory()
+    runtime = SemarunRuntime.in_memory()
     run = runtime.create_run(intent="resume test", plan=["a", "b"])
     run.checkpoint()
     run.pause()
@@ -18,7 +18,7 @@ def test_transparent_resume():
 
 
 def test_state_reconstruction():
-    runtime = SemaFlowRuntime.in_memory()
+    runtime = SemarunRuntime.in_memory()
     run = runtime.create_run(intent="state test", plan=["research", "draft"])
     with run.step("tool_call", name="crm") as step:
         step.set_tool_result("crm", {"lead": "42"})
@@ -32,7 +32,7 @@ def test_state_reconstruction():
 
 
 def test_semantic_replan():
-    runtime = SemaFlowRuntime.in_memory()
+    runtime = SemarunRuntime.in_memory()
     run = runtime.create_run(intent="replan test", plan=["old plan"])
     run.pause()
     resumed = runtime.resume(run.id)
@@ -44,7 +44,7 @@ def test_semantic_replan():
 
 
 def test_revalidated_mode_on_tool_drift():
-    runtime = SemaFlowRuntime.in_memory()
+    runtime = SemarunRuntime.in_memory()
     run = runtime.create_run(
         intent="drift test",
         continuation_policy=ContinuationPolicy(),

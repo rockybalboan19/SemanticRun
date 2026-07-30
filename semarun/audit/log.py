@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from semaflow.storage.base import StorageBackend
+    from semarun.storage.base import StorageBackend
 
 
 DIVERGENCE_EVENTS = frozenset(

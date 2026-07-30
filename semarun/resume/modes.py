@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from semaflow.models.policy import (
+from semarun.models.policy import (
     ContinuationResult,
     DivergenceAction,
     DivergenceEvent,

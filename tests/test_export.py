@@ -1,10 +1,10 @@
 """Tests for export_checkpoint_json."""
 
-from semaflow import SemaFlowRuntime
+from semarun import SemarunRuntime
 
 
 def test_export_returns_json_string():
-    runtime = SemaFlowRuntime.in_memory()
+    runtime = SemarunRuntime.in_memory()
     run = runtime.create_run(intent="export")
     run.checkpoint()
     data = run.export_checkpoint_json()

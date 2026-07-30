@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "semaflow"
+name = "semarun"
 version = "0.1.0"
 description = "Semantic checkpointing for long-running agents"
 readme = "README.md"
@@ -27,7 +27,7 @@ benchmark = ["psutil>=5.9"]
 dev = ["pytest>=7.0", "psutil>=5.9"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["semaflow"]
+packages = ["semarun"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

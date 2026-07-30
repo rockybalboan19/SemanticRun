@@ -1,4 +1,4 @@
-from semaflow.models.policy import (
+from semarun.models.policy import (
     ContinuationPolicy,
     ContinuationResult,
     DivergenceAction,
@@ -7,7 +7,7 @@ from semaflow.models.policy import (
     DivergenceReport,
     ResumeMode,
 )
-from semaflow.models.state import (
+from semarun.models.state import (
     AgentState,
     ApprovalState,
     ApprovalStatus,
