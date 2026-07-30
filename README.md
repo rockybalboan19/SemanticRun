@@ -1,13 +1,23 @@
-# Semarun
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ysharmcode/SemaRun/master/semarun-logo.png" alt="Semarun" width="360"/>
+</p>
 
-**Durable execution replays your agent. Semarun remembers what it learned.**
+<p align="center">
+  <strong>Durable execution replays your agent. Semarun remembers what it learned.</strong>
+</p>
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![PyPI](https://img.shields.io/badge/PyPI-semarun-blue)](https://pypi.org/project/semarun/)
+<p align="center">
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"/></a>
+  <a href="https://pypi.org/project/semarun/"><img src="https://img.shields.io/pypi/v/semarun.svg" alt="PyPI"/></a>
+</p>
 
-Semantic checkpointing runtime for long-running Python agents. Pause for hours, survive crashes and deploys, resume under a different model or tool result — without redoing completed work or corrupting intent.
+<p align="center">
+  Semantic checkpointing runtime for long-running Python agents.<br/>
+  Pause for hours, survive crashes and deploys, resume under a different model or tool result — without redoing completed work or corrupting intent.
+</p>
 
+<br/>
 ```python
 from semarun import SemarunRuntime, ContinuationPolicy
 
