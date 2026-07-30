@@ -1,5 +1,6 @@
 """SemaFlow — semantic checkpointing runtime for long-running agents."""
 
+from semaflow.kernel.run_handle import RunHandle, StateMutationError
 from semaflow.models import (
     AgentState,
     Checkpoint,
@@ -9,13 +10,10 @@ from semaflow.models import (
     DivergenceEvent,
     DivergenceKind,
     DivergenceReport,
-    Fact,
-    ModelContext,
     ResumeMode,
-    RunRecord,
     RunStatus,
-    ToolResultRef,
 )
+from semaflow.runtime import SemaFlowRuntime
 
 __all__ = [
     "AgentState",
@@ -26,12 +24,11 @@ __all__ = [
     "DivergenceEvent",
     "DivergenceKind",
     "DivergenceReport",
-    "Fact",
-    "ModelContext",
     "ResumeMode",
-    "RunRecord",
+    "RunHandle",
     "RunStatus",
-    "ToolResultRef",
+    "SemaFlowRuntime",
+    "StateMutationError",
 ]
 
 __version__ = "0.1.0"
