@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "semaflow"
+version = "0.1.0"
+description = "Semantic checkpointing for long-running agents"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [{ name = "ysharmcode" }]
+keywords = ["agents", "checkpointing", "durable-execution", "langgraph", "pydantic"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = ["pydantic>=2.0"]
+
+[project.optional-dependencies]
+benchmark = ["psutil>=5.9"]
+dev = ["pytest>=7.0", "psutil>=5.9"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["semaflow"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
