@@ -16,11 +16,14 @@ class DivergenceMatrix(BaseModel):
     plan_sequence_changed: bool = False
     approval_state_changed: bool = False
     behavioral_drift_flagged: bool = False
+    outbound_payload_divergence: dict[str, bool] = Field(default_factory=dict)
     deltas: dict[str, Any] = Field(default_factory=dict)
 
     @property
     def has_divergence(self) -> bool:
         if self.behavioral_drift_flagged:
+            return True
+        if any(self.outbound_payload_divergence.values()):
             return True
         if any(
             (
@@ -34,6 +37,10 @@ class DivergenceMatrix(BaseModel):
         ):
             return True
         return any(self.tool_result_hash_mismatch.values())
+
+    @property
+    def has_outbound_divergence(self) -> bool:
+        return any(self.outbound_payload_divergence.values())
 
     def triggered_flags(self) -> list[str]:
         flags: list[str] = []
@@ -53,4 +60,6 @@ class DivergenceMatrix(BaseModel):
             flags.append("approval_state_changed")
         if self.behavioral_drift_flagged:
             flags.append("behavioral_drift_flagged")
+        if any(self.outbound_payload_divergence.values()):
+            flags.append("outbound_payload_divergence")
         return flags

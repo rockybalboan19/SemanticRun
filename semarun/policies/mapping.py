@@ -14,6 +14,7 @@ DEFAULT_POLICY_MAPPING: dict[str, str] = {
     "plan_sequence_changed": "StrictReset",
     "approval_state_changed": "FailFast",
     "behavioral_drift_flagged": "BehavioralDriftPolicy",
+    "outbound_payload_divergence": "FailFast",
 }
 
 
@@ -26,6 +27,7 @@ class PolicyMapping(BaseModel):
     plan_sequence_changed: str = "StrictReset"
     approval_state_changed: str = "FailFast"
     behavioral_drift_flagged: str = "BehavioralDriftPolicy"
+    outbound_payload_divergence: str = "FailFast"
 
     def hook_for_flag(self, flag: str) -> str | None:
         return getattr(self, flag, None)

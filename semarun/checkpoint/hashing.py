@@ -45,3 +45,8 @@ def hash_tool_result(
     canonical = canonicalize_for_hash(result, hash_exclude, canonicalizer)
     payload = json.dumps(canonical, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def hash_outbound_request(payload: Any) -> str:
+    """ACRFence: hash literal outbound request payload for replay comparison."""
+    return hash_tool_result(payload)

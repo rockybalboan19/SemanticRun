@@ -34,3 +34,4 @@ class ResumeArtifacts(BaseModel):
     approval_status: str | None = None
     behavioral_drift_flagged: bool = False
     behavioral_drift_reason: str = ""
+    outbound_payloads: dict[str, object] = Field(default_factory=dict)
