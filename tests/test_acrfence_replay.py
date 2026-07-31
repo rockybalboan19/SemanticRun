@@ -26,7 +26,7 @@ def test_divergent_payload_flagged_not_replayed():
     prior_hash = prior.outbound_request_hash
 
     resynthesized = {"amount": 100, "idempotency_key": "abc", "memo": "retry"}
-    verdict = runtime._ledger.permit_replay(run.id, "send_payment", resynthesized)
+    verdict = runtime.ledger.permit_replay(run.id, "send_payment", resynthesized)
     assert verdict == ReplayVerdict.FLAG_DIVERGENCE
 
     updated = runtime.storage.get_latest_side_effect_for_target(run.id, "send_payment")
@@ -54,6 +54,6 @@ def test_matching_payload_permits_replay():
             explicit_side_effect="external",
             outbound_request=payload,
         )
-    verdict = runtime._ledger.permit_replay(run.id, "charge", payload)
+    verdict = runtime.ledger.permit_replay(run.id, "charge", payload)
     assert verdict == ReplayVerdict.PERMIT
     runtime.close()

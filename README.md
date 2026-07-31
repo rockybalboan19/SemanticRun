@@ -128,12 +128,13 @@ Steps skipped:                 7 of 8 (87.5%)
 
 Resuming from a mid-run checkpoint avoids re-running completed steps entirely. The exact savings depend on where your checkpoint boundary falls and which steps are LLM vs. tool-only.
 
-**Checkpoint latency** (output of `benchmarks/overhead.py` on local SQLite, 20 samples):
+**Checkpoint latency** (output of `benchmarks/overhead.py` on local SQLite, 300 samples):
 
 | Metric | Value |
 |--------|-------|
-| p50 | ~0.4 ms |
-| p95 | ~0.5 ms |
+| median | ~0.5 ms |
+| p95 | ~0.8 ms |
+| min / max | ~0.3 / varies ms |
 
 LLM API calls typically take **1,000–3,000+ ms**. Semarun adds sub-millisecond checkpoint writes on local SQLite at step boundaries — negligible relative to model latency. Your numbers will vary by disk, load, and checkpoint size; run the script.
 
@@ -182,7 +183,7 @@ with run.step("tool_call", name="send_payment") as step:
 
 # After restore, agent re-synthesizes a subtly different payload:
 resynthesized = {"amount": 100, "idempotency_key": "abc", "memo": "retry"}
-verdict = runtime._ledger.permit_replay(run.id, "send_payment", resynthesized)
+verdict = runtime.ledger.permit_replay(run.id, "send_payment", resynthesized)
 # ReplayVerdict.FLAG_DIVERGENCE — never silently replayed
 
 matrix = run.compute_divergence_matrix(
@@ -239,7 +240,7 @@ Semarun is **framework-agnostic infrastructure** — embed it in any Python agen
 |----------|----------|--------------|
 | Durable execution | Temporal, Restate | In-process alternative: no workers, no replay journal — artifact diff + checkpoint |
 | Agent frameworks | LangGraph, PydanticAI, CrewAI | State kernel beneath your loop; you wire policy outcomes back in |
-| CI / sandbox checkpoint | CRAB-style tools, container checkpoint/restore | Semarun is application-level state + policy hooks, not OS-level CRIU/fork restore |
+| CI / sandbox checkpoint | OS-level sandbox checkpoint/restore tools | Semarun is application-level state + policy hooks, not OS-level CRIU/fork restore |
 | Memory / RAG | Mem0, Zep | Runtime execution state + tool commitments — not long-term user facts |
 | Inference serving | vLLM, SGLang | Checkpoints Python agent state, not model KV tensors |
 
@@ -265,7 +266,7 @@ The main SQLite backend is single-writer — it will become the bottleneck if ma
 | `runtime.resume(run_id)` | Load latest checkpoint and resume |
 | `run.step(type, name=...)` | Context manager for step boundaries (records to ledger) |
 | `step.set_tool_result(..., outbound_request=..., explicit_side_effect=...)` | Commit tool output + outbound replay hash |
-| `ledger.permit_replay(run_id, target, payload)` | Outbound replay guard (mechanical hash compare) |
+| `runtime.ledger.permit_replay(run_id, target, payload)` | Outbound replay guard (mechanical hash compare) |
 | `run.checkpoint()` | Force a state snapshot |
 | `run.pause()` | Pause run and checkpoint |
 | `run.request_approval(action, payload)` | Human approval gate |
@@ -300,11 +301,11 @@ python benchmarks/overhead.py
 
 Semarun's design was **informed by** 2026 systems research on agent checkpointing. These are independent implementations — not ports of any released codebase, and correspondence to the papers is approximate rather than one-to-one.
 
-| Paper | arXiv | Related ideas in Semarun |
-|-------|-------|--------------------------|
-| **CRAB** | [2604.28138](https://arxiv.org/abs/2604.28138) | Sparse side-effect-triggered checkpointing (`kernel/skip_rules.py`, `checkpoint/triggers.py`); non-blocking checkpoint worker (`kernel/checkpoint_worker.py`); per-sandbox ledger SQLite (`storage/ledger_store.py`) |
-| **DeltaBox** | [2605.22781](https://arxiv.org/abs/2605.22781) | COW snapshot index (`kernel/snapshot_index.py`); NPD-style daemon-proxy (`kernel/runtime.py`) |
-| **ACRFence** | [2603.20625](https://arxiv.org/abs/2603.20625) | Outbound payload hash guard before replay (`kernel/ledger.py` `permit_replay()`) |
+| Paper | arXiv | Related ideas |
+|-------|-------|---------------|
+| **CRAB** | [2604.28138](https://arxiv.org/abs/2604.28138) | Sparse, side-effect-triggered checkpointing; non-blocking checkpoint writes; isolated per-sandbox storage |
+| **DeltaBox** | [2605.22781](https://arxiv.org/abs/2605.22781) | Copy-on-write snapshot trees; daemon-proxy control-plane pattern |
+| **ACRFence** | [2603.20625](https://arxiv.org/abs/2603.20625) | Outbound payload hashing to detect semantic rollback on replay |
 
 If you build on published research, cite it. We cite these papers because they shaped our thinking — not because Semarun implements them verbatim.
 

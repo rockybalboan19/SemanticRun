@@ -82,6 +82,10 @@ class SemarunRuntime:
         return self._audit
 
     @property
+    def ledger(self) -> SideEffectLedger:
+        return self._ledger
+
+    @property
     def registry(self) -> PolicyRegistry:
         return self._registry
 
