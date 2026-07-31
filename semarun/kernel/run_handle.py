@@ -50,6 +50,9 @@ class RunHandle:
         periodic_interval: int = 0,
         revalidation_template: str = "",
         assertions: list[str] | None = None,
+        checkpoint_worker: Any = None,
+        snapshot_index: Any = None,
+        daemon_proxy: Any = None,
     ) -> None:
         self._run = run
         self._state = state
@@ -63,6 +66,9 @@ class RunHandle:
         self._periodic_interval = periodic_interval
         self._revalidation_template = revalidation_template
         self._assertions = list(assertions or [])
+        self._checkpoint_worker = checkpoint_worker
+        self._snapshot_index = snapshot_index
+        self._daemon_proxy = daemon_proxy
         self._active_step: StepContext | None = None
         self._tool_schemas: dict = {}
         self._file_tree = None
@@ -117,34 +123,43 @@ class RunHandle:
 
     def _end_step(self, ctx: StepContext, failed: bool) -> None:
         self._run.step_count += 1
-        self._ledger.begin_turn()
         self._audit.emit(
             self._run.id,
             "step_failed" if failed else "step_completed",
             {"step_type": ctx.step_type.value, "name": ctx.name},
         )
-        step_id = ctx.step_id or ""
         self._active_step = None
         self._run.current_step_id = None
         self._sync_run()
         if failed:
             return
-        if should_checkpoint(
-            CheckpointTrigger.APPROVAL_GATE,
+        tool_name = ctx.name or ctx.metadata.get("tool", "")
+        if ctx.step_type == StepType.TOOL_CALL and should_checkpoint(
+            CheckpointTrigger.SIDE_EFFECT_BOUNDARY,
             step_type=ctx.step_type.value,
+            step_count=self._run.step_count,
+            periodic_interval=self._periodic_interval,
+            tool_name=tool_name,
+            tool_args=ctx.tool_args,
+            explicit_side_effect=ctx.explicit_side_effect,
+            recovery_relevant=ctx.recovery_relevant,
         ):
-            self.checkpoint(trigger=CheckpointTrigger.APPROVAL_GATE)
-            return
-        if should_checkpoint(
+            self._enqueue_checkpoint(CheckpointTrigger.SIDE_EFFECT_BOUNDARY)
+        elif should_checkpoint(
             CheckpointTrigger.PERIODIC,
             step_count=self._run.step_count,
             periodic_interval=self._periodic_interval,
         ):
-            self.checkpoint(trigger=CheckpointTrigger.PERIODIC)
-            return
-        # CRAB sparse rule: checkpoint only on recovery-relevant side effects.
-        if step_id and self._ledger.step_requires_checkpoint(step_id, self._run.id):
-            self.checkpoint(trigger=CheckpointTrigger.TOOL_BOUNDARY)
+            self._enqueue_checkpoint(CheckpointTrigger.PERIODIC)
+
+    def _enqueue_checkpoint(self, trigger: CheckpointTrigger) -> None:
+        if self._checkpoint_worker is not None:
+            self._checkpoint_worker.enqueue(
+                self._run.id,
+                lambda t=trigger: self.checkpoint(trigger=t),
+            )
+        else:
+            self.checkpoint(trigger=trigger)
 
     def set_file_tree(self, snapshot: Any) -> None:
         self._file_tree = snapshot
@@ -176,13 +191,6 @@ class RunHandle:
             tool_schemas=self._tool_schemas,
             file_tree=self._file_tree,
             policy_mapping=self._policy_mapping,
-        )
-        payload = ckpt.model_dump(mode="json")
-        snap_id, _ = self._ledger.commit_incremental_snapshot(self._run.id, payload)
-        self._audit.emit(
-            self._run.id,
-            "snapshot_indexed",
-            {"snapshot_node_id": snap_id},
         )
         self._run.latest_checkpoint_id = ckpt.id
         self._sync_run()
@@ -240,7 +248,14 @@ class RunHandle:
         if checkpoint is None:
             return DivergenceMatrix()
         artifacts = current or self._resume_artifacts or ResumeArtifacts()
-        return build_divergence_matrix(checkpoint, artifacts)
+        matrix = build_divergence_matrix(checkpoint, artifacts)
+        if artifacts.outbound_payloads:
+            matrix.outbound_payload_divergence = self._ledger.check_outbound_divergence(
+                self._run.id, artifacts.outbound_payloads
+            )
+            if matrix.outbound_payload_divergence:
+                matrix.deltas["outbound_payloads"] = matrix.outbound_payload_divergence
+        return matrix
 
     def route_policies(
         self,
@@ -268,18 +283,6 @@ class RunHandle:
             last_green_checkpoint_id=self._run.last_green_checkpoint_id,
             revalidation_template=self._revalidation_template,
             assertions=self._assertions,
-        )
-
-    def authorize_replay(
-        self,
-        target: str,
-        outbound_payload: Any,
-        *,
-        kind: str | None = None,
-    ):
-        """ACRFence guard: flag divergent re-synthesized retry payloads."""
-        return self._ledger.authorize_replay(
-            self._run.id, target, outbound_payload, kind=kind
         )
 
     def complete_step(self, action_name: str) -> None:
