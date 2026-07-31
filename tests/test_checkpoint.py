@@ -29,13 +29,14 @@ def test_trigger_rules():
     assert should_checkpoint(CheckpointTrigger.MANUAL)
 
 
-def test_checkpoint_created_on_recovery_relevant_step():
+def test_checkpoint_created_on_tool_step():
     runtime = SemarunRuntime.in_memory()
     run = runtime.create_run(intent="test", plan=["step1"])
-    with run.step("tool_call", name="write_file") as step:
-        step.record_filesystem_effect("/tmp/data.json", "write")
+    with run.step("tool_call", name="lookup") as step:
+        step.set_tool_result("lookup", {"id": 1}, schema={"type": "object"})
     ckpt = runtime.storage.get_latest_checkpoint(run.id)
     assert ckpt is not None
+    assert "lookup" in ckpt.tool_state
     runtime.close()
 
 
