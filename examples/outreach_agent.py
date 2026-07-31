@@ -1,12 +1,17 @@
-"""End-to-end outreach agent demo."""
+"""End-to-end outreach agent demo with explicit policy hooks."""
 
 from __future__ import annotations
 
 import tempfile
 from pathlib import Path
 
-from semarun import ContinuationPolicy, SemarunRuntime
-from semarun.models.state import Fact
+from semarun import (
+    PolicyMapping,
+    RevalidateWithPrompt,
+    SemarunRuntime,
+)
+from semarun.models.artifacts import ModelIdRef, ResumeArtifacts
+from semarun.models.state import VerifiedClaim
 
 
 def mock_crm_lookup(lead_id: str) -> dict:
@@ -19,22 +24,23 @@ def mock_crm_lookup(lead_id: str) -> dict:
     }
 
 
-def mock_llm_draft(profile: dict) -> str:
-    return f"Hi {profile['name']}, welcome to {profile['company']}!"
-
-
 def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         db = Path(tmp) / "outreach.db"
-        runtime = SemarunRuntime(str(db))
+        runtime = SemarunRuntime(
+            str(db),
+            policy_mapping=PolicyMapping(
+                tool_result_hash_mismatch="RevalidateWithPrompt",
+                model_id_changed="FailFast",
+            ),
+            revalidation_template="assert_tools.py",
+            assertions=["crm_lookup.status == success"],
+        )
+        runtime.registry.register(RevalidateWithPrompt(template="assert_tools.py"))
+
         run = runtime.create_run(
             intent="Complete onboarding outreach sequence",
             plan=["research lead", "draft email", "request approval", "send email"],
-            continuation_policy=ContinuationPolicy(
-                on_tool_drift="revalidate",
-                on_model_change="resume_with_warning",
-                on_user_change="replan",
-            ),
         )
         print(f"Created run: {run.id}")
 
@@ -44,22 +50,24 @@ def main() -> None:
                 "crm_lookup",
                 result,
                 hash_exclude=["created_at", "request_id"],
+                schema={"name": "crm_lookup", "fields": ["lead_id", "name", "company"]},
             )
-            run.state.established_facts.append(
-                Fact(
-                    fact="Lead is at Company X",
+            run.state.verified_claims.append(
+                VerifiedClaim(
+                    claim="Lead is at Company X",
                     source="crm",
-                    confidence=0.94,
+                    content_hash="claim_hash_1",
                 )
             )
 
         with run.step("llm_call", model="gpt-4.1-2026-07") as step:
-            draft = mock_llm_draft(result)
-            run.state.working_memory["draft_email"] = draft
+            draft = f"Hi {result['name']}, welcome to {result['company']}!"
+            run.state.working_memory.set_slot("draft_email", draft, step_id=step.step_id or "")
 
-        run.request_approval(action="send_email", payload={"draft": run.state.working_memory["draft_email"]})
-        print("Paused for approval...")
-
+        run.request_approval(
+            action="send_email",
+            payload={"draft": run.state.working_memory.get("draft_email")},
+        )
         run.approve()
         run_id = run.id
         runtime.close()
@@ -69,14 +77,17 @@ def main() -> None:
 
         changed_crm = mock_crm_lookup("lead_42")
         changed_crm["company"] = "Company Y"
-        report = resumed.detect_divergence(fresh_tool_results={"crm_lookup": changed_crm})
-        if report.has_divergence:
-            action = resumed.apply_continuation(report)
-            print(f"Divergence detected: {action.mode.value}")
-            if action.mode.value == "revalidated":
-                resumed.revalidate_stale(action.revalidation_checklist)
+        matrix = resumed.compute_divergence_matrix(
+            ResumeArtifacts(
+                tool_results={"crm_lookup": changed_crm},
+                model_id=ModelIdRef(model_family="gpt-4.1", model_version="2026-07"),
+            )
+        )
+        if matrix.has_divergence:
+            outcomes = resumed.route_policies(matrix)
+            for outcome in outcomes:
+                print(f"Policy routed: {outcome.hook_name} -> {outcome.action}")
 
-        resumed.complete_step("send_email")
         runtime2.complete(resumed)
         print(f"Run completed: {resumed.id}")
         runtime2.close()

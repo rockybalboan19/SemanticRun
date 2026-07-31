@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from semarun.models.policy import ContinuationPolicy
-from semarun.models.state import AgentState, Checkpoint, ModelContext, RunStatus
+from semarun.models.artifacts import FileTreeSnapshot, ModelIdRef, ToolSchemaRef
+from semarun.models.checkpoint import Checkpoint
+from semarun.models.state import AgentState, ModelContext, RunStatus
+from semarun.policies.mapping import PolicyMapping
 
 if TYPE_CHECKING:
     from semarun.audit.log import AuditLog
@@ -44,15 +46,21 @@ class CheckpointEngine:
         status: RunStatus,
         state: AgentState,
         model_context: ModelContext,
-        policy: ContinuationPolicy,
+        model_id: ModelIdRef,
+        tool_schemas: dict[str, ToolSchemaRef],
+        file_tree: FileTreeSnapshot | None,
+        policy_mapping: PolicyMapping,
     ) -> Checkpoint:
         summary = build_summary(state, status)
-        checkpoint = Checkpoint.from_agent_state(
+        checkpoint = Checkpoint.from_run_state(
             run_id=run_id,
             status=status,
             state=state,
             model_context=model_context,
-            continuation_policy_json=policy.model_dump(mode="json"),
+            model_id=model_id,
+            tool_schemas=tool_schemas,
+            file_tree=file_tree,
+            policy_mapping_json=policy_mapping.as_dict(),
             summary_text=summary,
         )
         saved = self._storage.save_checkpoint(checkpoint)

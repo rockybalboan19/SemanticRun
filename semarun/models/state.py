@@ -1,4 +1,4 @@
-"""Core state and checkpoint models."""
+"""Core state taxonomy - first-class versionable objects."""
 
 from __future__ import annotations
 
@@ -8,6 +8,8 @@ from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
+
+from semarun.checkpoint.hashing import hash_tool_result
 
 
 def _utcnow() -> datetime:
@@ -41,23 +43,10 @@ class ApprovalStatus(str, Enum):
     REJECTED = "rejected"
 
 
-class Fact(BaseModel):
-    fact: str
-    source: str
-    confidence: float = 1.0
-
-
 class PendingAction(BaseModel):
     type: str
     action: str
     payload: dict[str, Any] = Field(default_factory=dict)
-
-
-class ToolResultRef(BaseModel):
-    status: str = "success"
-    result_hash: str = ""
-    hash_exclude: list[str] = Field(default_factory=list)
-    raw_result: Any | None = None
 
 
 class ApprovalState(BaseModel):
@@ -79,17 +68,106 @@ class FailureRecord(BaseModel):
     occurred_at: datetime = Field(default_factory=_utcnow)
 
 
-class AgentState(BaseModel):
-    intent: str
+class ActiveIntent(BaseModel):
+    text: str
     plan: list[str] = Field(default_factory=list)
-    working_memory: dict[str, Any] = Field(default_factory=dict)
-    established_facts: list[Fact] = Field(default_factory=list)
+    version: int = 1
+    schema_version: str = "1"
+    declared_at: datetime = Field(default_factory=_utcnow)
+
+    def with_text(self, text: str, plan: list[str] | None = None) -> ActiveIntent:
+        return ActiveIntent(
+            text=text,
+            plan=list(plan if plan is not None else self.plan),
+            version=self.version + 1,
+            schema_version=self.schema_version,
+            declared_at=_utcnow(),
+        )
+
+
+class MemorySlot(BaseModel):
+    schema_ref: str = ""
+    content_hash: str = ""
+    value: Any = None
+    verified_at: datetime = Field(default_factory=_utcnow)
+    source_step_id: str = ""
+
+
+class VerifiedWorkingMemory(BaseModel):
+    slots: dict[str, MemorySlot] = Field(default_factory=dict)
+
+    def set_slot(
+        self,
+        key: str,
+        value: Any,
+        *,
+        step_id: str = "",
+        schema_ref: str = "",
+    ) -> None:
+        self.slots[key] = MemorySlot(
+            schema_ref=schema_ref,
+            content_hash=hash_tool_result(value),
+            value=value,
+            verified_at=_utcnow(),
+            source_step_id=step_id,
+        )
+
+    def get(self, key: str, default: Any = None) -> Any:
+        slot = self.slots.get(key)
+        return default if slot is None else slot.value
+
+    def __getitem__(self, key: str) -> Any:
+        return self.slots[key].value
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.set_slot(key, value)
+
+
+class ToolResultCommitment(BaseModel):
+    tool_name: str
+    schema_hash: str = ""
+    result_hash: str = ""
+    hash_exclude: list[str] = Field(default_factory=list)
+    status: str = "success"
+    committed_at: datetime = Field(default_factory=_utcnow)
+    step_id: str = ""
+    raw_result: Any | None = None
+
+
+class VerifiedClaim(BaseModel):
+    claim: str
+    source: str
+    content_hash: str
+    verified_at: datetime = Field(default_factory=_utcnow)
+
+
+class GreenCheckpointRef(BaseModel):
+    checkpoint_id: str
+    marked_at: datetime = Field(default_factory=_utcnow)
+
+
+class AgentState(BaseModel):
+    active_intent: ActiveIntent
+    working_memory: VerifiedWorkingMemory = Field(default_factory=VerifiedWorkingMemory)
+    tool_commitments: dict[str, ToolResultCommitment] = Field(default_factory=dict)
+    verified_claims: list[VerifiedClaim] = Field(default_factory=list)
     open_questions: list[str] = Field(default_factory=list)
     pending_actions: list[PendingAction] = Field(default_factory=list)
-    tool_commitments: dict[str, ToolResultRef] = Field(default_factory=dict)
     approval_state: ApprovalState | None = None
     failure_history: list[FailureRecord] = Field(default_factory=list)
-    risk_flags: list[str] = Field(default_factory=list)
+    green_checkpoint: GreenCheckpointRef | None = None
+
+    @property
+    def intent(self) -> str:
+        return self.active_intent.text
+
+    @property
+    def plan(self) -> list[str]:
+        return self.active_intent.plan
+
+    @classmethod
+    def create(cls, intent: str, plan: list[str] | None = None) -> AgentState:
+        return cls(active_intent=ActiveIntent(text=intent, plan=list(plan or [])))
 
 
 class RunRecord(BaseModel):
@@ -97,11 +175,13 @@ class RunRecord(BaseModel):
     intent: str
     status: RunStatus = RunStatus.RUNNING
     model_context: ModelContext = Field(default_factory=ModelContext)
-    continuation_policy_name: str = "default"
+    policy_mapping_name: str = "default"
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
     latest_checkpoint_id: str | None = None
+    last_green_checkpoint_id: str | None = None
     step_count: int = 0
+    current_step_id: str | None = None
 
 
 class StepRecord(BaseModel):
@@ -114,63 +194,14 @@ class StepRecord(BaseModel):
     completed_at: datetime | None = None
 
 
-class Checkpoint(BaseModel):
-    id: str = Field(default_factory=lambda: new_id("ckpt"))
+class SideEffectRecord(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("fx"))
     run_id: str
-    intent: str
-    status: RunStatus
-    model_context: ModelContext = Field(default_factory=ModelContext)
-    plan: list[str] = Field(default_factory=list)
-    working_memory: dict[str, Any] = Field(default_factory=dict)
-    established_facts: list[Fact] = Field(default_factory=list)
-    open_questions: list[str] = Field(default_factory=list)
-    pending_actions: list[PendingAction] = Field(default_factory=list)
-    tool_state: dict[str, ToolResultRef] = Field(default_factory=dict)
-    approval_state: ApprovalState | None = None
-    failure_history: list[FailureRecord] = Field(default_factory=list)
-    risk_flags: list[str] = Field(default_factory=list)
-    continuation_policy_json: dict[str, Any] = Field(default_factory=dict)
-    summary_text: str = ""
-    created_at: datetime = Field(default_factory=_utcnow)
-
-    @classmethod
-    def from_agent_state(
-        cls,
-        run_id: str,
-        status: RunStatus,
-        state: AgentState,
-        model_context: ModelContext,
-        continuation_policy_json: dict[str, Any],
-        summary_text: str = "",
-    ) -> Checkpoint:
-        return cls(
-            run_id=run_id,
-            intent=state.intent,
-            status=status,
-            model_context=model_context,
-            plan=list(state.plan),
-            working_memory=dict(state.working_memory),
-            established_facts=list(state.established_facts),
-            open_questions=list(state.open_questions),
-            pending_actions=list(state.pending_actions),
-            tool_state=dict(state.tool_commitments),
-            approval_state=state.approval_state,
-            failure_history=list(state.failure_history),
-            risk_flags=list(state.risk_flags),
-            continuation_policy_json=continuation_policy_json,
-            summary_text=summary_text,
-        )
-
-    def to_agent_state(self) -> AgentState:
-        return AgentState(
-            intent=self.intent,
-            plan=list(self.plan),
-            working_memory=dict(self.working_memory),
-            established_facts=list(self.established_facts),
-            open_questions=list(self.open_questions),
-            pending_actions=list(self.pending_actions),
-            tool_commitments=dict(self.tool_state),
-            approval_state=self.approval_state,
-            failure_history=list(self.failure_history),
-            risk_flags=list(self.risk_flags),
-        )
+    step_id: str
+    kind: str
+    target: str
+    payload_hash: str = ""
+    schema_hash: str = ""
+    request_payload_hash: str = ""
+    recovery_relevant: bool = False
+    recorded_at: datetime = Field(default_factory=_utcnow)

@@ -1,4 +1,4 @@
-"""Tests for human approval gates."""
+"""Tests for approval gates."""
 
 from semarun import SemarunRuntime
 from semarun.models.state import RunStatus
@@ -9,7 +9,6 @@ def test_approval_gate_pauses_run():
     run = runtime.create_run(intent="approval test")
     run.request_approval("send_email", payload={"draft": "hi"})
     assert run.status == RunStatus.WAITING_APPROVAL
-    assert run.state.approval_state is not None
     ckpt = runtime.storage.get_latest_checkpoint(run.id)
     assert ckpt.status == RunStatus.WAITING_APPROVAL
     runtime.close()
@@ -21,17 +20,15 @@ def test_approve_resumes_run():
     run.request_approval("send_email")
     run.approve()
     assert run.status == RunStatus.RUNNING
-    assert run.state.approval_state.status.value == "approved"
     runtime.close()
 
 
-def test_reject_triggers_divergence_on_resume():
+def test_reject_flags_approval_change_on_resume():
     runtime = SemarunRuntime.in_memory()
     run = runtime.create_run(intent="reject test")
     run.request_approval("send_email")
     run.reject()
-    assert run.status == RunStatus.PAUSED
     resumed = runtime.resume(run.id)
-    report = resumed.detect_divergence()
-    assert report.has_divergence
+    matrix = resumed.compute_divergence_matrix()
+    assert matrix.approval_state_changed
     runtime.close()

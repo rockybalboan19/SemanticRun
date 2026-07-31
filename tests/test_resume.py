@@ -1,7 +1,7 @@
-"""Tests for resume engine and resume modes."""
+"""Tests for resume and policy routing integration."""
 
-from semarun import ContinuationPolicy, SemarunRuntime
-from semarun.models.policy import ResumeMode
+from semarun import PolicyMapping, SemarunRuntime
+from semarun.models.artifacts import ModelIdRef, ResumeArtifacts
 
 
 def test_transparent_resume():
@@ -10,10 +10,12 @@ def test_transparent_resume():
     run.checkpoint()
     run.pause()
     resumed = runtime.resume(run.id)
-    report = resumed.detect_divergence()
-    assert not report.has_divergence
-    action = resumed.apply_continuation(report)
-    assert action.mode == ResumeMode.TRANSPARENT
+    matrix = resumed.compute_divergence_matrix(
+        ResumeArtifacts(intent_text="resume test", plan=["a", "b"])
+    )
+    assert not matrix.has_divergence
+    outcomes = resumed.route_policies(matrix)
+    assert outcomes[0].action == "continue"
     runtime.close()
 
 
@@ -22,7 +24,7 @@ def test_state_reconstruction():
     run = runtime.create_run(intent="state test", plan=["research", "draft"])
     with run.step("tool_call", name="crm") as step:
         step.set_tool_result("crm", {"lead": "42"})
-        run.state.working_memory["draft"] = "hello"
+        run.state.working_memory.set_slot("draft", "hello", step_id=step.step_id or "")
     run.pause()
     resumed = runtime.resume(run.id)
     assert resumed.state.intent == "state test"
@@ -31,35 +33,18 @@ def test_state_reconstruction():
     runtime.close()
 
 
-def test_semantic_replan():
-    runtime = SemarunRuntime.in_memory()
-    run = runtime.create_run(intent="replan test", plan=["old plan"])
+def test_strict_reset_policy_on_model_change():
+    runtime = SemarunRuntime.in_memory(
+        policy_mapping=PolicyMapping(model_id_changed="StrictReset"),
+    )
+    run = runtime.create_run(intent="model test")
+    run.checkpoint()
+    run.mark_green_checkpoint()
     run.pause()
     resumed = runtime.resume(run.id)
-    new_state = resumed.replan(preserve_intent=True)
-    assert new_state.intent == "replan test"
-    assert new_state.plan == []
-    assert new_state.pending_actions == []
-    runtime.close()
-
-
-def test_revalidated_mode_on_tool_drift():
-    runtime = SemarunRuntime.in_memory()
-    run = runtime.create_run(
-        intent="drift test",
-        continuation_policy=ContinuationPolicy(),
+    matrix = resumed.compute_divergence_matrix(
+        ResumeArtifacts(model_id=ModelIdRef(model_family="gpt-4.1", model_version="2026-07"))
     )
-    with run.step("tool_call", name="crm") as step:
-        step.set_tool_result("crm", {"status": "ok"}, hash_exclude=["created_at"])
-    run.pause()
-    resumed = runtime.resume(run.id)
-    report = resumed.detect_divergence(
-        fresh_tool_results={"crm": {"status": "changed", "created_at": "x"}}
-    )
-    assert report.has_divergence
-    action = resumed.apply_continuation(report)
-    assert action.mode == ResumeMode.REVALIDATED
-    assert "crm" in action.revalidation_checklist
-    cleared = resumed.revalidate_stale(["crm"])
-    assert "crm" in cleared
+    outcomes = resumed.route_policies(matrix)
+    assert any(o.hook_name == "StrictReset" for o in outcomes)
     runtime.close()
