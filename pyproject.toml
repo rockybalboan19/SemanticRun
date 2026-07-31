@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "semarun"
-version = "0.1.0"
-description = "Semantic checkpointing for long-running agents"
+version = "0.3.0"
+description = "Vendor-neutral mechanical state kernel for long-running agents"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
