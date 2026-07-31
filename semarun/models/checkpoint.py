@@ -40,6 +40,7 @@ class Checkpoint(BaseModel):
     file_tree: FileTreeSnapshot | None = None
     policy_mapping_json: dict[str, str] = Field(default_factory=dict)
     summary_text: str = ""
+    snapshot_node_id: str | None = None
     created_at: datetime = Field(default_factory=_utcnow)
 
     @classmethod
