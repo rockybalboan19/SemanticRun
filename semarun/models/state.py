@@ -194,6 +194,13 @@ class StepRecord(BaseModel):
     completed_at: datetime | None = None
 
 
+class SideEffectClass(str, Enum):
+    READ_ONLY = "read_only"
+    FILESYSTEM = "filesystem"
+    PROCESS = "process"
+    EXTERNAL = "external"
+
+
 class SideEffectRecord(BaseModel):
     id: str = Field(default_factory=lambda: new_id("fx"))
     run_id: str
@@ -202,6 +209,7 @@ class SideEffectRecord(BaseModel):
     target: str
     payload_hash: str = ""
     schema_hash: str = ""
-    request_payload_hash: str = ""
-    recovery_relevant: bool = False
+    outbound_request_hash: str = ""
+    side_effect_class: str = SideEffectClass.READ_ONLY.value
+    replay_permitted: bool = True
     recorded_at: datetime = Field(default_factory=_utcnow)
