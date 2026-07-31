@@ -1,76 +1,38 @@
-"""Step context manager and run handle."""
+"""Thin run lifecycle handle - delegates diff and policy routing."""
 
 from __future__ import annotations
 
-from collections.abc import Callable, Generator
-from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from semarun.checkpoint.engine import CheckpointEngine
-from semarun.checkpoint.hashing import hash_tool_result
 from semarun.checkpoint.triggers import CheckpointTrigger, should_checkpoint
-from semarun.models.policy import (
-    ContinuationPolicy,
-    ContinuationResult,
-    DivergenceReport,
-    ResumeMode,
-)
+from semarun.kernel.divergence_matrix import build_divergence_matrix
+from semarun.kernel.ledger import SideEffectLedger
+from semarun.kernel.step_context import StepContext
+from semarun.models.artifacts import ResumeArtifacts
+from semarun.models.checkpoint import Checkpoint
+from semarun.models.divergence import DivergenceMatrix
 from semarun.models.state import (
     AgentState,
     ApprovalState,
     ApprovalStatus,
+    GreenCheckpointRef,
     ModelContext,
     PendingAction,
     RunRecord,
     RunStatus,
     StepType,
-    ToolResultRef,
+    new_id,
 )
-from semarun.resume.engine import ResumeEngine
+from semarun.policies.contract import PolicyOutcome, PolicyRegistry
+from semarun.policies.mapping import PolicyMapping
+from semarun.resume.router import PolicyRouter
 
 
 class StateMutationError(RuntimeError):
     pass
-
-
-class StepContext:
-    def __init__(
-        self,
-        handle: RunHandle,
-        step_type: StepType,
-        name: str = "",
-        metadata: dict[str, Any] | None = None,
-    ) -> None:
-        self._handle = handle
-        self.step_type = step_type
-        self.name = name
-        self.metadata = metadata or {}
-        self._tool_results: dict[str, tuple[Any, ToolResultRef]] = {}
-
-    def set_tool_result(
-        self,
-        tool_name: str,
-        result: Any,
-        hash_exclude: list[str] | None = None,
-        canonicalizer: Callable[[Any], Any] | None = None,
-    ) -> None:
-        ref = ToolResultRef(
-            status="success",
-            result_hash=hash_tool_result(result, hash_exclude, canonicalizer),
-            hash_exclude=list(hash_exclude or []),
-            raw_result=result,
-        )
-        self._tool_results[tool_name] = (result, ref)
-        self._handle.state.tool_commitments[tool_name] = ref
-
-    def __enter__(self) -> StepContext:
-        self._handle._begin_step(self)
-        return self
-
-    def __exit__(self, exc_type, exc, tb) -> None:
-        self._handle._end_step(self, exc_type is not None)
 
 
 class RunHandle:
@@ -78,24 +40,33 @@ class RunHandle:
         self,
         run: RunRecord,
         state: AgentState,
-        policy: ContinuationPolicy,
+        policy_mapping: PolicyMapping,
         checkpoint_engine: CheckpointEngine,
-        resume_engine: ResumeEngine,
+        policy_router: PolicyRouter,
+        ledger: SideEffectLedger,
         storage: Any,
         audit: Any,
+        registry: PolicyRegistry,
         periodic_interval: int = 0,
+        revalidation_template: str = "",
+        assertions: list[str] | None = None,
     ) -> None:
         self._run = run
         self._state = state
-        self._policy = policy
+        self._policy_mapping = policy_mapping
         self._checkpoint_engine = checkpoint_engine
-        self._resume_engine = resume_engine
+        self._policy_router = policy_router
+        self._ledger = ledger
         self._storage = storage
         self._audit = audit
+        self._registry = registry
         self._periodic_interval = periodic_interval
+        self._revalidation_template = revalidation_template
+        self._assertions = list(assertions or [])
         self._active_step: StepContext | None = None
-        self._last_checkpoint = None
-        self._resume_context: dict[str, Any] = {}
+        self._tool_schemas: dict = {}
+        self._file_tree = None
+        self._resume_artifacts: ResumeArtifacts | None = None
 
     @property
     def id(self) -> str:
@@ -110,16 +81,12 @@ class RunHandle:
         return self._run.status
 
     @property
-    def policy(self) -> ContinuationPolicy:
-        return self._policy
+    def policy_mapping(self) -> PolicyMapping:
+        return self._policy_mapping
 
     @property
     def model_context(self) -> ModelContext:
         return self._run.model_context
-
-    def _ensure_mutable(self) -> None:
-        if self._active_step is None:
-            raise StateMutationError("State mutations must occur inside an active step")
 
     def _sync_run(self) -> None:
         self._storage.update_run(self._run)
@@ -134,52 +101,92 @@ class RunHandle:
         if "model" in metadata:
             parts = str(metadata["model"]).split("-", 1)
             self._run.model_context.model_family = parts[0]
-            self._run.model_context.model_version = metadata["model"]
+            self._run.model_context.model_version = str(metadata["model"])
         return StepContext(self, st, name=name, metadata=metadata)
 
-    def _begin_step(self, ctx: StepContext) -> None:
+    def _begin_step(self, ctx: StepContext) -> str:
         self._active_step = ctx
+        step_id = new_id("step")
+        self._run.current_step_id = step_id
         self._audit.emit(
             self._run.id,
             "step_started",
-            {"step_type": ctx.step_type.value, "name": ctx.name, "metadata": ctx.metadata},
+            {"step_id": step_id, "step_type": ctx.step_type.value, "name": ctx.name},
         )
+        return step_id
 
     def _end_step(self, ctx: StepContext, failed: bool) -> None:
         self._run.step_count += 1
-        event = "step_failed" if failed else "step_completed"
+        self._ledger.begin_turn()
         self._audit.emit(
             self._run.id,
-            "step_completed" if not failed else "step_failed",
+            "step_failed" if failed else "step_completed",
             {"step_type": ctx.step_type.value, "name": ctx.name},
         )
+        step_id = ctx.step_id or ""
         self._active_step = None
+        self._run.current_step_id = None
         self._sync_run()
-        if not failed and should_checkpoint(
-            CheckpointTrigger.TOOL_BOUNDARY,
+        if failed:
+            return
+        if should_checkpoint(
+            CheckpointTrigger.APPROVAL_GATE,
             step_type=ctx.step_type.value,
-            step_count=self._run.step_count,
-            periodic_interval=self._periodic_interval,
         ):
-            self.checkpoint(trigger=CheckpointTrigger.TOOL_BOUNDARY)
-        elif should_checkpoint(
+            self.checkpoint(trigger=CheckpointTrigger.APPROVAL_GATE)
+            return
+        if should_checkpoint(
             CheckpointTrigger.PERIODIC,
             step_count=self._run.step_count,
             periodic_interval=self._periodic_interval,
         ):
             self.checkpoint(trigger=CheckpointTrigger.PERIODIC)
+            return
+        # CRAB sparse rule: checkpoint only on recovery-relevant side effects.
+        if step_id and self._ledger.step_requires_checkpoint(step_id, self._run.id):
+            self.checkpoint(trigger=CheckpointTrigger.TOOL_BOUNDARY)
 
-    def checkpoint(self, trigger: str | CheckpointTrigger = CheckpointTrigger.MANUAL) -> None:
+    def set_file_tree(self, snapshot: Any) -> None:
+        self._file_tree = snapshot
+
+    def set_resume_artifacts(self, artifacts: ResumeArtifacts) -> None:
+        self._resume_artifacts = artifacts
+
+    def mark_green_checkpoint(self, checkpoint_id: str | None = None) -> None:
+        ckpt_id = checkpoint_id or self._run.latest_checkpoint_id
+        if ckpt_id is None:
+            raise RuntimeError("No checkpoint to mark green")
+        self._state.green_checkpoint = GreenCheckpointRef(checkpoint_id=ckpt_id)
+        self._run.last_green_checkpoint_id = ckpt_id
+        self._sync_run()
+
+    def checkpoint(self, trigger: str | CheckpointTrigger = CheckpointTrigger.MANUAL) -> Checkpoint:
+        from semarun.kernel.artifact_diff import model_context_to_ref
+
+        model_id = model_context_to_ref(
+            self._run.model_context.model_family,
+            self._run.model_context.model_version,
+        )
         ckpt = self._checkpoint_engine.create_checkpoint(
             run_id=self._run.id,
             status=self._run.status,
             state=self._state,
             model_context=self._run.model_context,
-            policy=self._policy,
+            model_id=model_id,
+            tool_schemas=self._tool_schemas,
+            file_tree=self._file_tree,
+            policy_mapping=self._policy_mapping,
         )
-        self._last_checkpoint = ckpt
+        payload = ckpt.model_dump(mode="json")
+        snap_id, _ = self._ledger.commit_incremental_snapshot(self._run.id, payload)
+        self._audit.emit(
+            self._run.id,
+            "snapshot_indexed",
+            {"snapshot_node_id": snap_id},
+        )
         self._run.latest_checkpoint_id = ckpt.id
         self._sync_run()
+        return ckpt
 
     def pause(self) -> None:
         self._run.status = RunStatus.PAUSED
@@ -188,8 +195,7 @@ class RunHandle:
         self._sync_run()
 
     def request_approval(self, action: str, payload: dict[str, Any] | None = None) -> None:
-        approval = ApprovalState(action=action, payload=payload or {})
-        self._state.approval_state = approval
+        self._state.approval_state = ApprovalState(action=action, payload=payload or {})
         self._state.pending_actions.append(
             PendingAction(type="human_approval", action=action, payload=payload or {})
         )
@@ -226,41 +232,55 @@ class RunHandle:
         self.checkpoint(trigger=CheckpointTrigger.APPROVAL_GATE)
         self._sync_run()
 
-    def set_resume_context(self, **kwargs: Any) -> None:
-        self._resume_context.update(kwargs)
-
-    def detect_divergence(self, **kwargs: Any) -> DivergenceReport:
+    def compute_divergence_matrix(
+        self,
+        current: ResumeArtifacts | None = None,
+    ) -> DivergenceMatrix:
         checkpoint = self._storage.get_latest_checkpoint(self._run.id)
         if checkpoint is None:
-            return DivergenceReport()
-        ctx = {**self._resume_context, **kwargs}
-        return self._resume_engine.detector.detect(
-            checkpoint,
-            current_model=ctx.get("current_model", self._run.model_context),
-            current_intent=ctx.get("current_intent"),
-            current_plan=ctx.get("current_plan"),
-            fresh_tool_results=ctx.get("fresh_tool_results"),
-            fresh_facts=ctx.get("fresh_facts"),
+            return DivergenceMatrix()
+        artifacts = current or self._resume_artifacts or ResumeArtifacts()
+        return build_divergence_matrix(checkpoint, artifacts)
+
+    def route_policies(
+        self,
+        matrix: DivergenceMatrix | None = None,
+        current: ResumeArtifacts | None = None,
+    ) -> list[PolicyOutcome]:
+        checkpoint = self._storage.get_latest_checkpoint(self._run.id)
+        if checkpoint is None:
+            return [
+                PolicyOutcome(
+                    action="continue",
+                    hook_name="none",
+                    flag="none",
+                    message="No checkpoint",
+                )
+            ]
+        if matrix is None:
+            matrix = self.compute_divergence_matrix(current)
+        return self._policy_router.route(
+            run_id=self._run.id,
+            matrix=matrix,
+            checkpoint=checkpoint,
+            mapping=self._policy_mapping,
+            current=current or self._resume_artifacts,
+            last_green_checkpoint_id=self._run.last_green_checkpoint_id,
+            revalidation_template=self._revalidation_template,
+            assertions=self._assertions,
         )
 
-    def apply_continuation(self, report: DivergenceReport | None = None) -> ContinuationResult:
-        if report is None:
-            report = self.detect_divergence()
-        return self._resume_engine.apply_continuation(self._run.id, report, self._policy)
-
-    def replan(self, preserve_intent: bool = True) -> AgentState:
-        self._state = self._resume_engine.replan(self._state, preserve_intent=preserve_intent)
-        return self._state
-
-    def revalidate_stale(self, tools: list[str]) -> list[str]:
-        cleared: list[str] = []
-        for tool in tools:
-            if tool.startswith("fact:"):
-                continue
-            if tool in self._state.tool_commitments:
-                del self._state.tool_commitments[tool]
-                cleared.append(tool)
-        return cleared
+    def authorize_replay(
+        self,
+        target: str,
+        outbound_payload: Any,
+        *,
+        kind: str | None = None,
+    ):
+        """ACRFence guard: flag divergent re-synthesized retry payloads."""
+        return self._ledger.authorize_replay(
+            self._run.id, target, outbound_payload, kind=kind
+        )
 
     def complete_step(self, action_name: str) -> None:
         self._state.pending_actions = [

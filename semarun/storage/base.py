@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from semarun.models.state import Checkpoint, RunRecord
+from semarun.models.checkpoint import Checkpoint
+from semarun.models.state import RunRecord, SideEffectRecord
 
 
 class StorageBackend(Protocol):
@@ -27,6 +28,12 @@ class StorageBackend(Protocol):
     ) -> str: ...
 
     def list_audit_events(self, run_id: str) -> list[dict]: ...
+
+    def append_side_effect(self, record: SideEffectRecord) -> SideEffectRecord: ...
+
+    def list_side_effects(
+        self, run_id: str, step_id: str | None = None
+    ) -> list[SideEffectRecord]: ...
 
     def save_approval(
         self,

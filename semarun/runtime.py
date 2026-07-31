@@ -2,16 +2,29 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
-
 from semarun.audit.log import AuditLog
 from semarun.checkpoint.engine import CheckpointEngine
+from semarun.kernel.ledger import SideEffectLedger
 from semarun.kernel.run_handle import RunHandle
-from semarun.models.policy import ContinuationPolicy
 from semarun.models.state import AgentState, ModelContext, RunRecord, RunStatus
-from semarun.resume.engine import ResumeEngine
+from semarun.policies.behavioral import BehavioralDriftPolicy
+from semarun.policies.builtin import FailFast, RevalidateWithPrompt, StrictReset
+from semarun.policies.contract import PolicyHook, PolicyRegistry
+from semarun.policies.mapping import PolicyMapping
+from semarun.resume.router import PolicyRouter
 from semarun.storage.sqlite import SQLiteStorage
+
+
+def _default_registry() -> PolicyRegistry:
+    registry = PolicyRegistry()
+    for hook in (
+        FailFast(),
+        RevalidateWithPrompt(),
+        StrictReset(),
+        BehavioralDriftPolicy(),
+    ):
+        registry.register(hook)
+    return registry
 
 
 class SemarunRuntime:
@@ -19,16 +32,28 @@ class SemarunRuntime:
         self,
         db_path: str = "semarun.db",
         periodic_checkpoint_interval: int = 0,
+        policy_mapping: PolicyMapping | None = None,
+        policies: dict[str, PolicyHook] | None = None,
+        revalidation_template: str = "",
+        assertions: list[str] | None = None,
     ) -> None:
         self._storage = SQLiteStorage(db_path)
         self._audit = AuditLog(self._storage)
+        self._ledger = SideEffectLedger(self._storage, start_gc=False)
         self._checkpoint_engine = CheckpointEngine(
             self._storage,
             self._audit,
             periodic_interval=periodic_checkpoint_interval,
         )
-        self._resume_engine = ResumeEngine(self._audit)
+        self._registry = _default_registry()
+        if policies:
+            for hook in policies.values():
+                self._registry.register(hook)
+        self._policy_router = PolicyRouter(self._registry, self._audit)
+        self._policy_mapping = policy_mapping or PolicyMapping()
         self._periodic_interval = periodic_checkpoint_interval
+        self._revalidation_template = revalidation_template
+        self._assertions = list(assertions or [])
 
     @property
     def storage(self) -> SQLiteStorage:
@@ -38,32 +63,48 @@ class SemarunRuntime:
     def audit(self) -> AuditLog:
         return self._audit
 
+    @property
+    def registry(self) -> PolicyRegistry:
+        return self._registry
+
+    def _make_handle(
+        self,
+        run: RunRecord,
+        state: AgentState,
+        policy_mapping: PolicyMapping | None = None,
+    ) -> RunHandle:
+        return RunHandle(
+            run=run,
+            state=state,
+            policy_mapping=policy_mapping or self._policy_mapping,
+            checkpoint_engine=self._checkpoint_engine,
+            policy_router=self._policy_router,
+            ledger=self._ledger,
+            storage=self._storage,
+            audit=self._audit,
+            registry=self._registry,
+            periodic_interval=self._periodic_interval,
+            revalidation_template=self._revalidation_template,
+            assertions=self._assertions,
+        )
+
     def create_run(
         self,
         intent: str,
         plan: list[str] | None = None,
-        continuation_policy: ContinuationPolicy | None = None,
+        policy_mapping: PolicyMapping | None = None,
         model_context: ModelContext | None = None,
     ) -> RunHandle:
-        policy = continuation_policy or ContinuationPolicy()
+        mapping = policy_mapping or self._policy_mapping
         run = RunRecord(
             intent=intent,
             status=RunStatus.RUNNING,
             model_context=model_context or ModelContext(),
         )
         self._storage.create_run(run)
-        state = AgentState(intent=intent, plan=list(plan or []))
+        state = AgentState.create(intent=intent, plan=list(plan or []))
         self._audit.emit(run.id, "run_created", {"intent": intent})
-        return RunHandle(
-            run=run,
-            state=state,
-            policy=policy,
-            checkpoint_engine=self._checkpoint_engine,
-            resume_engine=self._resume_engine,
-            storage=self._storage,
-            audit=self._audit,
-            periodic_interval=self._periodic_interval,
-        )
+        return self._make_handle(run, state, mapping)
 
     def resume(self, run_id: str) -> RunHandle:
         run = self._storage.get_run(run_id)
@@ -72,20 +113,11 @@ class SemarunRuntime:
         checkpoint = self._storage.get_latest_checkpoint(run_id)
         if checkpoint is None:
             raise ValueError(f"No checkpoint found for run: {run_id}")
-        policy = ContinuationPolicy.model_validate(checkpoint.continuation_policy_json)
-        state = self._resume_engine.reconstruct_state(checkpoint)
+        mapping = PolicyMapping.from_dict(checkpoint.policy_mapping_json)
+        state = checkpoint.state.model_copy(deep=True)
         run.status = RunStatus.RUNNING
         self._storage.update_run(run)
-        handle = RunHandle(
-            run=run,
-            state=state,
-            policy=policy,
-            checkpoint_engine=self._checkpoint_engine,
-            resume_engine=self._resume_engine,
-            storage=self._storage,
-            audit=self._audit,
-            periodic_interval=self._periodic_interval,
-        )
+        handle = self._make_handle(run, state, mapping)
         handle.mark_resumed()
         return handle
 
@@ -102,8 +134,9 @@ class SemarunRuntime:
         run._sync_run()
 
     def close(self) -> None:
+        self._ledger.close()
         self._storage.close()
 
     @classmethod
-    def in_memory(cls, periodic_checkpoint_interval: int = 0) -> SemarunRuntime:
-        return cls(db_path=":memory:", periodic_checkpoint_interval=periodic_checkpoint_interval)
+    def in_memory(cls, periodic_checkpoint_interval: int = 0, **kwargs) -> SemarunRuntime:
+        return cls(db_path=":memory:", periodic_checkpoint_interval=periodic_checkpoint_interval, **kwargs)
