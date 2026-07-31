@@ -1,7 +1,7 @@
 """Semarun - vendor-neutral mechanical state kernel for stochastic agent execution."""
 
-from semarun.kernel.ledger import ReplayAuthorization, SideEffectKind, SideEffectLedger
-from semarun.kernel.runtime import DaemonProxyRuntime, InFlightBuffer, RequestKind
+from semarun.kernel.ledger import ReplayVerdict, SideEffectLedger
+from semarun.kernel.runtime import DaemonProxyRuntime, InflightBuffer
 from semarun.kernel.run_handle import RunHandle, StateMutationError
 from semarun.kernel.skip_rules import ActionClass, classify_action, skips_full_checkpoint
 from semarun.models import (
@@ -28,17 +28,15 @@ __all__ = [
     "DaemonProxyRuntime",
     "DivergenceMatrix",
     "FailFast",
-    "InFlightBuffer",
+    "InflightBuffer",
     "PolicyMapping",
     "PolicyOutcome",
-    "ReplayAuthorization",
+    "ReplayVerdict",
     "RevalidateWithPrompt",
-    "RequestKind",
     "ResumeArtifacts",
     "RunHandle",
     "RunStatus",
     "SemarunRuntime",
-    "SideEffectKind",
     "SideEffectLedger",
     "StateMutationError",
     "StrictReset",

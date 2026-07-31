@@ -129,7 +129,37 @@ class DivergenceMatrix:
     plan_sequence_changed: bool
     approval_state_changed: bool
     behavioral_drift_flagged: bool                 # set only by explicit caller input
+    outbound_payload_divergence: dict[str, bool]  # ACRFence: re-synthesized retry detected
     deltas: dict[str, Any]                         # mechanical diffs only
+```
+
+### Research hardening (CRAB + DeltaBox + ACRFence)
+
+Techniques adapted from 2026 systems research on agent checkpointing:
+
+| Source | Technique | Semarun module |
+|--------|-----------|----------------|
+| **CRAB** | Sparse checkpoints only on filesystem/process/external side effects | `kernel/skip_rules.py`, `checkpoint/triggers.py` |
+| **CRAB** | Non-blocking checkpoint writes on background worker | `kernel/checkpoint_worker.py` |
+| **CRAB** | Per-sandbox isolated ledger SQLite (R3 co-location) | `storage/ledger_store.py` |
+| **DeltaBox** | COW snapshot index tree + background GC | `kernel/snapshot_index.py` |
+| **DeltaBox** | NPD daemon-proxy: agent holds FIFOs/sockets, not SDK handles | `kernel/runtime.py` |
+| **ACRFence** | Outbound payload hash guard before replay | `kernel/ledger.py` `permit_replay()` |
+
+Read-only tools (`grep`, `cat`, `git diff`, `crm_lookup`, etc.) append to the ledger but **skip full checkpoint**. Recovery-relevant tools checkpoint via `SIDE_EFFECT_BOUNDARY`.
+
+```python
+with run.step("tool_call", name="send_payment") as step:
+    step.set_tool_result(
+        "send_payment",
+        result,
+        explicit_side_effect="external",
+        outbound_request={"amount": 100, "idempotency_key": "abc"},
+    )
+
+# After restore, re-synthesized payload with different literal bytes:
+verdict = ledger.permit_replay(run_id, "send_payment", resynthesized_payload)
+# FLAG_DIVERGENCE — never silently replayed
 ```
 
 ### Policy contract (`semarun/policies/`)
@@ -187,7 +217,8 @@ Semarun is **framework-agnostic infrastructure** — embed it in any Python agen
 | `runtime.create_run(intent, plan=...)` | Start a new agent run |
 | `runtime.resume(run_id)` | Load latest checkpoint and resume |
 | `run.step(type, name=...)` | Context manager for step boundaries (records to ledger) |
-| `step.set_tool_result(name, result, hash_exclude=[...])` | Commit tool output with semantic hash |
+| `step.set_tool_result(..., outbound_request=..., explicit_side_effect=...)` | Commit tool output + ACRFence outbound hash |
+| `ledger.permit_replay(run_id, target, payload)` | ACRFence replay guard (mechanical hash compare) |
 | `run.checkpoint()` | Force a state snapshot |
 | `run.pause()` | Pause run and checkpoint |
 | `run.request_approval(action, payload)` | Human approval gate |
