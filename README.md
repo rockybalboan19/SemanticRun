@@ -10,12 +10,15 @@
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"/></a>
   <a href="https://pypi.org/project/semarun/"><img src="https://img.shields.io/pypi/v/semarun.svg" alt="PyPI"/></a>
+  <img src="https://img.shields.io/badge/status-pre--1.0-orange.svg" alt="Status: pre-1.0"/>
 </p>
 
 <p align="center">
   Vendor-neutral mechanical state kernel for long-running Python agents.<br/>
   Pause for hours, survive crashes and deploys, resume under a different model or tool result — without redoing completed work.
 </p>
+
+<p align="center"><em>Status: early / pre-1.0 — APIs may change. Not yet recommended for production execution paths without your own evaluation.</em></p>
 
 <br/>
 
@@ -32,6 +35,7 @@ runtime = SemarunRuntime(
     policy_mapping=PolicyMapping(
         tool_result_hash_mismatch="RevalidateWithPrompt",
         model_id_changed="FailFast",
+        outbound_payload_divergence="FailFast",
     ),
     revalidation_template="assert_tools.py",
 )
@@ -63,11 +67,6 @@ if matrix.has_divergence:
     outcomes = run.route_policies(matrix)  # declarative only — your agent executes them
 ```
 
-```
-Naive restart (step 7 crash):  ████████  8 LLM calls
-Semarun resume:                █         1 LLM call
-```
-
 ## What Semarun Is
 
 Semarun is a **standalone in-process state kernel** — not a LangGraph plugin, not a Temporal worker, not an orchestration framework.
@@ -90,6 +89,20 @@ flowchart LR
     Outcomes --> Agent
 ```
 
+## Why this exists
+
+**Why hasn't OpenAI or Anthropic just built this?**
+
+Three reasons, and they're structural rather than technical:
+
+1. **Multi-vendor neutrality.** Semarun checkpoints *your* agent loop's state — tool commitments, file-tree hashes, model IDs — regardless of which provider you call next. A frontier lab building checkpointing would naturally optimize for their own stack, not a vendor-agnostic execution contract you can carry across GPT, Claude, Gemini, and local models.
+
+2. **Plumbing vs. frontier focus.** Checkpointing, ledger diffing, and replay guards are infrastructure. Labs prioritize model capability and API surface; durable agent *execution* state is something you embed, not something they sell as a product.
+
+3. **Enterprise lock-in resistance.** Teams that need auditable, policy-governed resumption across crashes, deploys, and human approval gates often cannot depend on a single vendor's opaque session store. Semarun is MIT-licensed, in-process, and inspectable — you own the checkpoint JSON and the policy hooks.
+
+Semarun is the mechanical layer beneath your loop. It does not replace your framework, your model provider, or your orchestrator.
+
 ## The Problem
 
 - Agents crash, deploy, wait for humans, and change models — replay-first systems cannot detect artifact drift.
@@ -98,18 +111,31 @@ flowchart LR
 
 ## Performance & Overhead
 
+All numbers below come from scripts in [`benchmarks/`](benchmarks/). Reproduce them locally before trusting them in your environment:
+
+```bash
+python benchmarks/resume_savings.py   # resume vs naive restart
+python benchmarks/overhead.py           # checkpoint snapshot latency
 ```
-[Semarun Overhead Stats]
-  • Checkpoint Snapshot Latency:  ~1–8 ms (SQLite local write)
-  • Memory Overhead:              < 4 MB resident set size
-  • Token Savings on Resume:      Up to 98% of prior execution steps
+
+**Worked example** (8-step run, crash during step 7 — output of `benchmarks/resume_savings.py`):
+
+```
+Naive restart (step 7 crash):  ████████  8 LLM steps re-executed
+Semarun resume:                █         1 LLM step re-executed
+Steps skipped:                 7 of 8 (87.5%)
 ```
 
-*Measured locally on developer hardware. Benchmark scripts are not shipped in the public repo.*
+Resuming from a mid-run checkpoint avoids re-running completed steps entirely. The exact savings depend on where your checkpoint boundary falls and which steps are LLM vs. tool-only.
 
-LLM API calls take **1,000–3,000+ ms**. Semarun adds **<10 ms** per step boundary — zero noticeable lag to the agent loop.
+**Checkpoint latency** (output of `benchmarks/overhead.py` on local SQLite, 20 samples):
 
-In an **8-step agent run where step 7 fails**, Semarun resumes from the last checkpoint, saving **~75%** of execution cost and time versus a full restart.
+| Metric | Value |
+|--------|-------|
+| p50 | ~0.4 ms |
+| p95 | ~0.5 ms |
+
+LLM API calls typically take **1,000–3,000+ ms**. Semarun adds sub-millisecond checkpoint writes on local SQLite at step boundaries — negligible relative to model latency. Your numbers will vary by disk, load, and checkpoint size; run the script.
 
 ## Architecture
 
@@ -128,27 +154,24 @@ class DivergenceMatrix:
     intent_string_changed: bool
     plan_sequence_changed: bool
     approval_state_changed: bool
-    behavioral_drift_flagged: bool                 # set only by explicit caller input
-    outbound_payload_divergence: dict[str, bool]  # ACRFence: re-synthesized retry detected
+    behavioral_drift_flagged: bool                 # set by YOUR consistency check — never inferred by kernel
+    outbound_payload_divergence: dict[str, bool]  # re-synthesized outbound retry detected
     deltas: dict[str, Any]                         # mechanical diffs only
 ```
 
-### Research hardening (CRAB + DeltaBox + ACRFence)
-
-Techniques adapted from 2026 systems research on agent checkpointing:
-
-| Source | Technique | Semarun module |
-|--------|-----------|----------------|
-| **CRAB** | Sparse checkpoints only on filesystem/process/external side effects | `kernel/skip_rules.py`, `checkpoint/triggers.py` |
-| **CRAB** | Non-blocking checkpoint writes on background worker | `kernel/checkpoint_worker.py` |
-| **CRAB** | Per-sandbox isolated ledger SQLite (R3 co-location) | `storage/ledger_store.py` |
-| **DeltaBox** | COW snapshot index tree + background GC | `kernel/snapshot_index.py` |
-| **DeltaBox** | NPD daemon-proxy: agent holds FIFOs/sockets, not SDK handles | `kernel/runtime.py` |
-| **ACRFence** | Outbound payload hash guard before replay | `kernel/ledger.py` `permit_replay()` |
+`behavioral_drift_flagged` is set by your own output-consistency check when you pass `behavioral_drift_flagged=True` in `ResumeArtifacts` — Semarun never infers this itself.
 
 Read-only tools (`grep`, `cat`, `git diff`, `crm_lookup`, etc.) append to the ledger but **skip full checkpoint**. Recovery-relevant tools checkpoint via `SIDE_EFFECT_BOUNDARY`.
 
+### Outbound replay guard
+
+Before replaying an external side-effecting call after restore, the ledger hashes the outbound request and compares it to the pre-checkpoint version. Divergent payloads are flagged — never silently replayed.
+
 ```python
+runtime = SemarunRuntime(
+    policy_mapping=PolicyMapping(outbound_payload_divergence="FailFast"),
+)
+
 with run.step("tool_call", name="send_payment") as step:
     step.set_tool_result(
         "send_payment",
@@ -157,9 +180,20 @@ with run.step("tool_call", name="send_payment") as step:
         outbound_request={"amount": 100, "idempotency_key": "abc"},
     )
 
-# After restore, re-synthesized payload with different literal bytes:
-verdict = ledger.permit_replay(run_id, "send_payment", resynthesized_payload)
-# FLAG_DIVERGENCE — never silently replayed
+# After restore, agent re-synthesizes a subtly different payload:
+resynthesized = {"amount": 100, "idempotency_key": "abc", "memo": "retry"}
+verdict = runtime._ledger.permit_replay(run.id, "send_payment", resynthesized)
+# ReplayVerdict.FLAG_DIVERGENCE — never silently replayed
+
+matrix = run.compute_divergence_matrix(
+    ResumeArtifacts(outbound_payloads={"send_payment": resynthesized})
+)
+outcomes = run.route_policies(matrix)
+for o in outcomes:
+    if o.flag == "outbound_payload_divergence":
+        # PolicyOutcome(action="abort", hook_name="FailFast", ...)
+        # Your agent halts — payment is NOT retried with the divergent payload
+        runtime.abort(run, reason="outbound payload mismatch")
 ```
 
 ### Policy contract (`semarun/policies/`)
@@ -168,10 +202,10 @@ You declare which hook runs for each matrix flag. The kernel routes — it does 
 
 | Hook | Outcome | Use when |
 |------|---------|----------|
-| **FailFast** | `abort` | Model swap, critical file-tree change |
+| **FailFast** | `abort` | Model swap, critical file-tree change, outbound payload divergence |
 | **RevalidateWithPrompt** | `run_assertions` | Tool result or schema drift — returns your template + assertion list |
 | **StrictReset** | `load_checkpoint` | Roll back to last-green checkpoint (you mark which) |
-| **BehavioralDriftPolicy** | `halt_for_human` | Caller explicitly sets `behavioral_drift_flagged=True` with reason |
+| **BehavioralDriftPolicy** | `halt_for_human` | You explicitly set `behavioral_drift_flagged=True` with reason |
 
 ```python
 runtime = SemarunRuntime(
@@ -180,6 +214,7 @@ runtime = SemarunRuntime(
         model_id_changed="FailFast",
         file_tree_hash_mismatch="FailFast",
         behavioral_drift_flagged="BehavioralDriftPolicy",
+        outbound_payload_divergence="FailFast",
     ),
 )
 ```
@@ -204,10 +239,22 @@ Semarun is **framework-agnostic infrastructure** — embed it in any Python agen
 |----------|----------|--------------|
 | Durable execution | Temporal, Restate | In-process alternative: no workers, no replay journal — artifact diff + checkpoint |
 | Agent frameworks | LangGraph, PydanticAI, CrewAI | State kernel beneath your loop; you wire policy outcomes back in |
+| CI / sandbox checkpoint | CRAB-style tools, container checkpoint/restore | Semarun is application-level state + policy hooks, not OS-level CRIU/fork restore |
 | Memory / RAG | Mem0, Zep | Runtime execution state + tool commitments — not long-term user facts |
 | Inference serving | vLLM, SGLang | Checkpoints Python agent state, not model KV tensors |
 
 > Unlike distributed orchestrators that replay function calls, Semarun diffs **artifacts** (tool results, schemas, file trees, model IDs) and returns **policy outcomes** for your agent to act on.
+
+## Known limitations & roadmap
+
+| Today | Planned |
+|-------|---------|
+| Single-writer SQLite for run metadata (WAL mode) | Pluggable `StorageBackend` for multi-sandbox co-location (R3) |
+| Per-run ledger SQLite for COW blobs | Shared blob store backend |
+| Daemon-proxy tested via mock control plane | Full FIFO daemon integration on Linux |
+| Pre-1.0 APIs | Stable 1.0 after community feedback |
+
+The main SQLite backend is single-writer — it will become the bottleneck if many agent sandboxes checkpoint concurrently on one host. The isolated `ledger_store.py` per run is a first step toward swappable storage; a pooled backend is on the roadmap.
 
 ## API Reference
 
@@ -217,8 +264,8 @@ Semarun is **framework-agnostic infrastructure** — embed it in any Python agen
 | `runtime.create_run(intent, plan=...)` | Start a new agent run |
 | `runtime.resume(run_id)` | Load latest checkpoint and resume |
 | `run.step(type, name=...)` | Context manager for step boundaries (records to ledger) |
-| `step.set_tool_result(..., outbound_request=..., explicit_side_effect=...)` | Commit tool output + ACRFence outbound hash |
-| `ledger.permit_replay(run_id, target, payload)` | ACRFence replay guard (mechanical hash compare) |
+| `step.set_tool_result(..., outbound_request=..., explicit_side_effect=...)` | Commit tool output + outbound replay hash |
+| `ledger.permit_replay(run_id, target, payload)` | Outbound replay guard (mechanical hash compare) |
 | `run.checkpoint()` | Force a state snapshot |
 | `run.pause()` | Pause run and checkpoint |
 | `run.request_approval(action, payload)` | Human approval gate |
@@ -243,7 +290,23 @@ pip install semarun
 # or from source:
 pip install -e ".[dev]"
 pytest
+
+# Reproduce README benchmark numbers:
+python benchmarks/resume_savings.py
+python benchmarks/overhead.py
 ```
+
+## Prior art & acknowledgments
+
+Semarun's design was **informed by** 2026 systems research on agent checkpointing. These are independent implementations — not ports of any released codebase, and correspondence to the papers is approximate rather than one-to-one.
+
+| Paper | arXiv | Related ideas in Semarun |
+|-------|-------|--------------------------|
+| **CRAB** | [2604.28138](https://arxiv.org/abs/2604.28138) | Sparse side-effect-triggered checkpointing (`kernel/skip_rules.py`, `checkpoint/triggers.py`); non-blocking checkpoint worker (`kernel/checkpoint_worker.py`); per-sandbox ledger SQLite (`storage/ledger_store.py`) |
+| **DeltaBox** | [2605.22781](https://arxiv.org/abs/2605.22781) | COW snapshot index (`kernel/snapshot_index.py`); NPD-style daemon-proxy (`kernel/runtime.py`) |
+| **ACRFence** | [2603.20625](https://arxiv.org/abs/2603.20625) | Outbound payload hash guard before replay (`kernel/ledger.py` `permit_replay()`) |
+
+If you build on published research, cite it. We cite these papers because they shaped our thinking — not because Semarun implements them verbatim.
 
 ## License
 
