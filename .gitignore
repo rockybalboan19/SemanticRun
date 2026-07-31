@@ -27,4 +27,4 @@ ENV/
 .ruff_cache/
 *.db
 *.sqlite
-benchmarks/
+benchmarks/output/
