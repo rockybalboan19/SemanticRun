@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/rockybalboan19/SemanticRun/master/semarun-logo.png" alt="Semarun" width="360"/>
+  <img src="https://raw.githubusercontent.com/rockybalboan19/SemanticRun/master/semarun-logo.png" alt="SemanticRun" width="360"/>
 </p>
 
 <p align="center">
