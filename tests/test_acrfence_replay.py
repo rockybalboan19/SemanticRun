@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from semarun import SemarunRuntime
-from semarun.kernel.ledger import ReplayVerdict
-from semarun.models.artifacts import ResumeArtifacts
+from semanticrun import SemanticRun
+from semanticrun.kernel.ledger import ReplayVerdict
+from semanticrun.models.artifacts import ResumeArtifacts
 
 
 def test_divergent_payload_flagged_not_replayed():
-    runtime = SemarunRuntime.in_memory()
+    runtime = SemanticRun.in_memory()
     run = runtime.create_run(intent="Payment flow")
 
     original = {"amount": 100, "idempotency_key": "abc"}
@@ -44,7 +44,7 @@ def test_divergent_payload_flagged_not_replayed():
 
 
 def test_matching_payload_permits_replay():
-    runtime = SemarunRuntime.in_memory()
+    runtime = SemanticRun.in_memory()
     run = runtime.create_run(intent="Idempotent retry")
     payload = {"amount": 50, "idempotency_key": "xyz"}
     with run.step("tool_call", name="charge") as step:

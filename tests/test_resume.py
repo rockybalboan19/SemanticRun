@@ -1,11 +1,11 @@
 """Tests for resume and policy routing integration."""
 
-from semarun import PolicyMapping, SemarunRuntime
-from semarun.models.artifacts import ModelIdRef, ResumeArtifacts
+from semanticrun import PolicyMapping, SemanticRun
+from semanticrun.models.artifacts import ModelIdRef, ResumeArtifacts
 
 
 def test_transparent_resume():
-    runtime = SemarunRuntime.in_memory()
+    runtime = SemanticRun.in_memory()
     run = runtime.create_run(intent="resume test", plan=["a", "b"])
     run.checkpoint()
     run.pause()
@@ -20,7 +20,7 @@ def test_transparent_resume():
 
 
 def test_state_reconstruction():
-    runtime = SemarunRuntime.in_memory()
+    runtime = SemanticRun.in_memory()
     run = runtime.create_run(intent="state test", plan=["research", "draft"])
     with run.step("tool_call", name="crm") as step:
         step.set_tool_result("crm", {"lead": "42"})
@@ -34,7 +34,7 @@ def test_state_reconstruction():
 
 
 def test_strict_reset_policy_on_model_change():
-    runtime = SemarunRuntime.in_memory(
+    runtime = SemanticRun.in_memory(
         policy_mapping=PolicyMapping(model_id_changed="StrictReset"),
     )
     run = runtime.create_run(intent="model test")

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from semarun.policies.contract import PolicyOutcome
+from semanticrun.policies.contract import PolicyOutcome
 
 
 class PolicyAbort(RuntimeError):

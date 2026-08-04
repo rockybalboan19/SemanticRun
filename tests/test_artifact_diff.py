@@ -1,14 +1,14 @@
 """Tests for mechanical artifact diffing."""
 
-from semarun.kernel.artifact_diff import (
+from semanticrun.kernel.artifact_diff import (
     diff_file_trees,
     diff_model_ids,
     diff_tool_results,
     diff_tool_schemas,
     hash_schema,
 )
-from semarun.models.artifacts import FileTreeSnapshot, ModelIdRef, ToolSchemaRef
-from semarun.models.state import ToolResultCommitment
+from semanticrun.models.artifacts import FileTreeSnapshot, ModelIdRef, ToolSchemaRef
+from semanticrun.models.state import ToolResultCommitment
 
 
 def test_hash_schema_stable():
@@ -26,7 +26,7 @@ def test_diff_tool_schemas_detects_change():
 def test_diff_tool_results_respects_hash_exclude():
     commitment = ToolResultCommitment(
         tool_name="crm",
-        result_hash=__import__("semarun.checkpoint.hashing", fromlist=["hash_tool_result"]).hash_tool_result(
+        result_hash=__import__("semanticrun.checkpoint.hashing", fromlist=["hash_tool_result"]).hash_tool_result(
             {"id": 1, "ts": "a"}, hash_exclude=["ts"]
         ),
         hash_exclude=["ts"],

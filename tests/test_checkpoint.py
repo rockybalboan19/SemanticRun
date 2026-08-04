@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from semarun import SemarunRuntime
-from semarun.checkpoint.hashing import hash_tool_result
-from semarun.checkpoint.triggers import CheckpointTrigger, should_checkpoint
-from semarun.policies.mapping import PolicyMapping
+from semanticrun import SemanticRun
+from semanticrun.checkpoint.hashing import hash_tool_result
+from semanticrun.checkpoint.triggers import CheckpointTrigger, should_checkpoint
+from semanticrun.policies.mapping import PolicyMapping
 
 
 def test_hash_tool_result_stable():
@@ -30,7 +30,7 @@ def test_trigger_rules():
 
 
 def test_checkpoint_created_on_tool_step():
-    runtime = SemarunRuntime.in_memory()
+    runtime = SemanticRun.in_memory()
     run = runtime.create_run(intent="test", plan=["step1"])
     with run.step("tool_call", name="lookup") as step:
         step.set_tool_result("lookup", {"id": 1}, schema={"type": "object"})
@@ -41,7 +41,7 @@ def test_checkpoint_created_on_tool_step():
 
 
 def test_export_checkpoint_json(tmp_path):
-    runtime = SemarunRuntime.in_memory()
+    runtime = SemanticRun.in_memory()
     run = runtime.create_run(intent="export test")
     run.checkpoint()
     out = tmp_path / "ckpt.json"

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/rockybalboan19/SemanticRun/master/semarun-logo.png" alt="SemanticRun" width="360"/>
+  <img src="https://raw.githubusercontent.com/rockybalboan19/SemanticRun/master/semanticrun-logo.png" alt="SemanticRun" width="360"/>
 </p>
 
 <p align="center">
@@ -19,7 +19,7 @@
 </p>
 
 ```python
-from semarun import SemanticRun, PolicyMapping
+from semanticrun import SemanticRun, PolicyMapping
 
 env = SemanticRun.open("./runs.db")
 
@@ -65,7 +65,6 @@ Not a Temporal or LangGraph plugin — the environment your agent runs in when t
 
 ```bash
 pip install SemanticRun
-# import stays: from semarun import SemanticRun
 
 # from source:
 pip install -e ".[dev]"

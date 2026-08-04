@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from semarun.checkpoint.hashing import hash_tool_result
+from semanticrun.checkpoint.hashing import hash_tool_result
 
 
 def _utcnow() -> datetime:

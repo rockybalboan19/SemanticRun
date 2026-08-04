@@ -5,12 +5,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from semarun.kernel.artifact_diff import hash_schema
-from semarun.kernel.ledger import ReplayVerdict
-from semarun.models.artifacts import ToolSchemaRef
-from semarun.models.state import StepType, ToolResultCommitment
-from semarun.policies.errors import PolicyAbort
-from semarun.policies.contract import PolicyOutcome
+from semanticrun.kernel.artifact_diff import hash_schema
+from semanticrun.kernel.ledger import ReplayVerdict
+from semanticrun.models.artifacts import ToolSchemaRef
+from semanticrun.models.state import StepType, ToolResultCommitment
+from semanticrun.policies.errors import PolicyAbort
+from semanticrun.policies.contract import PolicyOutcome
 
 
 class OutboundDivergenceError(PolicyAbort):
@@ -56,8 +56,8 @@ class StepContext:
         tool_args: Any = None,
         explicit_side_effect: str | None = None,
     ) -> None:
-        from semarun.checkpoint.hashing import hash_tool_result
-        from semarun.kernel.skip_rules import ActionClass, classify_action
+        from semanticrun.checkpoint.hashing import hash_tool_result
+        from semanticrun.kernel.skip_rules import ActionClass, classify_action
 
         self.tool_args = tool_args if tool_args is not None else self.metadata.get("args")
         self.explicit_side_effect = explicit_side_effect

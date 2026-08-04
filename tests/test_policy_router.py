@@ -1,15 +1,15 @@
 """Tests for policy router."""
 
-from semarun.audit.log import AuditLog
-from semarun.models.artifacts import ResumeArtifacts
-from semarun.models.checkpoint import Checkpoint
-from semarun.models.divergence import DivergenceMatrix
-from semarun.models.state import AgentState, RunStatus
-from semarun.policies.builtin import FailFast, RevalidateWithPrompt
-from semarun.policies.contract import PolicyRegistry
-from semarun.policies.mapping import PolicyMapping
-from semarun.resume.router import PolicyRouter
-from semarun.storage.sqlite import SQLiteStorage
+from semanticrun.audit.log import AuditLog
+from semanticrun.models.artifacts import ResumeArtifacts
+from semanticrun.models.checkpoint import Checkpoint
+from semanticrun.models.divergence import DivergenceMatrix
+from semanticrun.models.state import AgentState, RunStatus
+from semanticrun.policies.builtin import FailFast, RevalidateWithPrompt
+from semanticrun.policies.contract import PolicyRegistry
+from semanticrun.policies.mapping import PolicyMapping
+from semanticrun.resume.router import PolicyRouter
+from semanticrun.storage.sqlite import SQLiteStorage
 
 
 def test_router_dispatches_registered_hook():

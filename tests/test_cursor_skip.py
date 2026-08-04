@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from semarun import PolicyMapping, SemanticRun
-from semarun.models.artifacts import ModelIdRef, ResumeArtifacts
-from semarun.policies.errors import PolicyAbort
+from semanticrun import PolicyMapping, SemanticRun
+from semanticrun.models.artifacts import ModelIdRef, ResumeArtifacts
+from semanticrun.policies.errors import PolicyAbort
 
 
 def test_steps_skips_completed_on_resume(tmp_path):

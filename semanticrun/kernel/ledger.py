@@ -5,13 +5,13 @@ from __future__ import annotations
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from semarun.checkpoint.hashing import hash_outbound_request, hash_tool_result
-from semarun.kernel.skip_rules import ActionClass, classify_action
-from semarun.models.state import SideEffectClass, SideEffectRecord
+from semanticrun.checkpoint.hashing import hash_outbound_request, hash_tool_result
+from semanticrun.kernel.skip_rules import ActionClass, classify_action
+from semanticrun.models.state import SideEffectClass, SideEffectRecord
 
 if TYPE_CHECKING:
-    from semarun.audit.log import AuditLog
-    from semarun.storage.base import StorageBackend
+    from semanticrun.audit.log import AuditLog
+    from semanticrun.storage.base import StorageBackend
 
 
 class ReplayVerdict(str, Enum):

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from semarun import SemanticRun
-from semarun.kernel.artifact_diff import hash_file_tree
+from semanticrun import SemanticRun
+from semanticrun.kernel.artifact_diff import hash_file_tree
 
 
 def test_resume_retains_tool_schemas_on_next_checkpoint(tmp_path):

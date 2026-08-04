@@ -1,12 +1,12 @@
-from semarun.models.artifacts import (
+from semanticrun.models.artifacts import (
     FileTreeSnapshot,
     ModelIdRef,
     ResumeArtifacts,
     ToolSchemaRef,
 )
-from semarun.models.checkpoint import Checkpoint
-from semarun.models.divergence import DivergenceMatrix
-from semarun.models.state import (
+from semanticrun.models.checkpoint import Checkpoint
+from semanticrun.models.divergence import DivergenceMatrix
+from semanticrun.models.state import (
     ActiveIntent,
     AgentState,
     ApprovalState,
@@ -26,8 +26,8 @@ from semarun.models.state import (
     VerifiedWorkingMemory,
     new_id,
 )
-from semarun.policies.contract import PolicyContext, PolicyOutcome, PolicyRegistry
-from semarun.policies.mapping import PolicyMapping
+from semanticrun.policies.contract import PolicyContext, PolicyOutcome, PolicyRegistry
+from semanticrun.policies.mapping import PolicyMapping
 
 __all__ = [
     "ActiveIntent",

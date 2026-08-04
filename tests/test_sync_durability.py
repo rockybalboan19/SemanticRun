@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from semarun import SemanticRun
+from semanticrun import SemanticRun
 
 
 def test_default_async_checkpoints_false():

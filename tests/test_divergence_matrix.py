@@ -1,9 +1,9 @@
 """Tests for divergence matrix builder."""
 
-from semarun.kernel.divergence_matrix import build_divergence_matrix
-from semarun.models.artifacts import ModelIdRef, ResumeArtifacts, ToolSchemaRef
-from semarun.models.checkpoint import Checkpoint
-from semarun.models.state import AgentState, RunStatus, ToolResultCommitment
+from semanticrun.kernel.divergence_matrix import build_divergence_matrix
+from semanticrun.models.artifacts import ModelIdRef, ResumeArtifacts, ToolSchemaRef
+from semanticrun.models.checkpoint import Checkpoint
+from semanticrun.models.state import AgentState, RunStatus, ToolResultCommitment
 
 
 def _checkpoint(**kwargs) -> Checkpoint:

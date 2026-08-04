@@ -10,8 +10,8 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from semarun import PolicyAbort, PolicyMapping, SemanticRun
-from semarun.models.artifacts import ModelIdRef, ResumeArtifacts
+from semanticrun import PolicyAbort, PolicyMapping, SemanticRun
+from semanticrun.models.artifacts import ModelIdRef, ResumeArtifacts
 
 
 def crm_lookup(lead_id: str, company: str = "Company X") -> dict:

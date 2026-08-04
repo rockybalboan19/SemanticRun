@@ -8,8 +8,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from semarun.models.artifacts import FileTreeSnapshot, ModelIdRef, ToolSchemaRef
-from semarun.models.state import (
+from semanticrun.models.artifacts import FileTreeSnapshot, ModelIdRef, ToolSchemaRef
+from semanticrun.models.state import (
     AgentState,
     ApprovalState,
     FailureRecord,

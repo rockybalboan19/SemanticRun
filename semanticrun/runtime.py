@@ -5,19 +5,19 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from semarun.audit.log import AuditLog
-from semarun.checkpoint.engine import CheckpointEngine
-from semarun.kernel.checkpoint_worker import CheckpointWorker
-from semarun.kernel.ledger import SideEffectLedger
-from semarun.kernel.run_handle import RunHandle
-from semarun.models.artifacts import ResumeArtifacts
-from semarun.models.state import AgentState, ModelContext, RunRecord, RunStatus
-from semarun.policies.behavioral import BehavioralDriftPolicy
-from semarun.policies.builtin import FailFast, RevalidateWithPrompt, StrictReset
-from semarun.policies.contract import PolicyHook, PolicyRegistry
-from semarun.policies.mapping import PolicyMapping
-from semarun.resume.router import PolicyRouter
-from semarun.storage.sqlite import SQLiteStorage
+from semanticrun.audit.log import AuditLog
+from semanticrun.checkpoint.engine import CheckpointEngine
+from semanticrun.kernel.checkpoint_worker import CheckpointWorker
+from semanticrun.kernel.ledger import SideEffectLedger
+from semanticrun.kernel.run_handle import RunHandle
+from semanticrun.models.artifacts import ResumeArtifacts
+from semanticrun.models.state import AgentState, ModelContext, RunRecord, RunStatus
+from semanticrun.policies.behavioral import BehavioralDriftPolicy
+from semanticrun.policies.builtin import FailFast, RevalidateWithPrompt, StrictReset
+from semanticrun.policies.contract import PolicyHook, PolicyRegistry
+from semanticrun.policies.mapping import PolicyMapping
+from semanticrun.resume.router import PolicyRouter
+from semanticrun.storage.sqlite import SQLiteStorage
 
 
 def _default_registry() -> PolicyRegistry:
@@ -37,7 +37,7 @@ class SemanticRun:
 
     def __init__(
         self,
-        db_path: str = "semarun.db",
+        db_path: str = "semanticrun.db",
         periodic_checkpoint_interval: int = 0,
         policy_mapping: PolicyMapping | None = None,
         policies: dict[str, PolicyHook] | None = None,
@@ -213,6 +213,3 @@ class SemanticRun:
             **kwargs,
         )
 
-
-# Backward-compatible alias (deprecated).
-SemarunRuntime = SemanticRun

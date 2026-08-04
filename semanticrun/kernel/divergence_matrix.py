@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from semarun.kernel.artifact_diff import (
+from semanticrun.kernel.artifact_diff import (
     diff_file_trees,
     diff_model_ids,
     diff_tool_results,
     diff_tool_schemas,
 )
-from semarun.models.artifacts import ResumeArtifacts
-from semarun.models.checkpoint import Checkpoint
-from semarun.models.divergence import DivergenceMatrix
+from semanticrun.models.artifacts import ResumeArtifacts
+from semanticrun.models.checkpoint import Checkpoint
+from semanticrun.models.divergence import DivergenceMatrix
 def build_divergence_matrix(
     checkpoint: Checkpoint,
     current: ResumeArtifacts,

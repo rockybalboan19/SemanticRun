@@ -1,6 +1,6 @@
 """Read-only action classifier tests."""
 
-from semarun.kernel.skip_rules import ActionClass, classify_action, skips_full_checkpoint
+from semanticrun.kernel.skip_rules import ActionClass, classify_action, skips_full_checkpoint
 
 
 def test_grep_is_read_only():

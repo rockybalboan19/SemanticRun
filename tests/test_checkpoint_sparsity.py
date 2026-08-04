@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from semarun import SemarunRuntime
+from semanticrun import SemanticRun
 
 
 def _run_synthetic_trace() -> tuple[int, int]:
-    runtime = SemarunRuntime.in_memory()
+    runtime = SemanticRun.in_memory()
     run = runtime.create_run(intent="Synthetic trace", plan=["mixed tools"])
 
     read_only_tools = [
@@ -65,7 +65,7 @@ def test_checkpoint_sparsity_under_half():
 
 
 def test_read_only_turns_have_ledger_no_extra_checkpoints():
-    runtime = SemarunRuntime.in_memory()
+    runtime = SemanticRun.in_memory()
     run = runtime.create_run(intent="Read only")
     with run.step("tool_call", name="grep") as step:
         step.set_tool_result("grep", {"matches": []}, tool_args={"pattern": "x"})
@@ -77,7 +77,7 @@ def test_read_only_turns_have_ledger_no_extra_checkpoints():
 
 
 def test_recovery_relevant_turns_checkpoint():
-    runtime = SemarunRuntime.in_memory()
+    runtime = SemanticRun.in_memory()
     run = runtime.create_run(intent="Side effect")
     with run.step("tool_call", name="write_file") as step:
         step.set_tool_result(

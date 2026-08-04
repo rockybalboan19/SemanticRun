@@ -7,9 +7,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from semarun.checkpoint.hashing import hash_tool_result
-from semarun.models.artifacts import FileTreeSnapshot, ModelIdRef, ToolSchemaRef
-from semarun.models.state import ToolResultCommitment
+from semanticrun.checkpoint.hashing import hash_tool_result
+from semanticrun.models.artifacts import FileTreeSnapshot, ModelIdRef, ToolSchemaRef
+from semanticrun.models.state import ToolResultCommitment
 
 
 def hash_schema(schema: dict[str, Any] | str) -> str:

@@ -1,11 +1,11 @@
 """Tests for approval gates."""
 
-from semarun import SemarunRuntime
-from semarun.models.state import RunStatus
+from semanticrun import SemanticRun
+from semanticrun.models.state import RunStatus
 
 
 def test_approval_gate_pauses_run():
-    runtime = SemarunRuntime.in_memory()
+    runtime = SemanticRun.in_memory()
     run = runtime.create_run(intent="approval test")
     run.request_approval("send_email", payload={"draft": "hi"})
     assert run.status == RunStatus.WAITING_APPROVAL
@@ -15,7 +15,7 @@ def test_approval_gate_pauses_run():
 
 
 def test_approve_resumes_run():
-    runtime = SemarunRuntime.in_memory()
+    runtime = SemanticRun.in_memory()
     run = runtime.create_run(intent="approve test")
     run.request_approval("send_email")
     run.approve()
@@ -24,9 +24,9 @@ def test_approve_resumes_run():
 
 
 def test_reject_flags_approval_change_on_resume():
-    from semarun.models.artifacts import ResumeArtifacts
+    from semanticrun.models.artifacts import ResumeArtifacts
 
-    runtime = SemarunRuntime.in_memory()
+    runtime = SemanticRun.in_memory()
     run = runtime.create_run(intent="reject test")
     run.request_approval("send_email")
     run.reject()

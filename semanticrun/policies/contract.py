@@ -6,9 +6,9 @@ from typing import Any, Protocol
 
 from pydantic import BaseModel, Field
 
-from semarun.models.artifacts import ResumeArtifacts
-from semarun.models.checkpoint import Checkpoint
-from semarun.models.divergence import DivergenceMatrix
+from semanticrun.models.artifacts import ResumeArtifacts
+from semanticrun.models.checkpoint import Checkpoint
+from semanticrun.models.divergence import DivergenceMatrix
 
 
 class PolicyOutcome(BaseModel):

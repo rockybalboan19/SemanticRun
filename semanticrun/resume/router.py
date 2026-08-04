@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from semarun.models.artifacts import ResumeArtifacts
-from semarun.models.checkpoint import Checkpoint
-from semarun.models.divergence import DivergenceMatrix
-from semarun.policies.contract import PolicyContext, PolicyOutcome, PolicyRegistry
-from semarun.policies.mapping import PolicyMapping
+from semanticrun.models.artifacts import ResumeArtifacts
+from semanticrun.models.checkpoint import Checkpoint
+from semanticrun.models.divergence import DivergenceMatrix
+from semanticrun.policies.contract import PolicyContext, PolicyOutcome, PolicyRegistry
+from semanticrun.policies.mapping import PolicyMapping
 
 if TYPE_CHECKING:
-    from semarun.audit.log import AuditLog
+    from semanticrun.audit.log import AuditLog
 
 
 class PolicyRouter:

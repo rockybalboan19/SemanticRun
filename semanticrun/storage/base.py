@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from semarun.models.checkpoint import Checkpoint
-from semarun.models.state import RunRecord, SideEffectRecord
+from semanticrun.models.checkpoint import Checkpoint
+from semanticrun.models.state import RunRecord, SideEffectRecord
 
 
 class StorageBackend(Protocol):

@@ -1,12 +1,12 @@
 """Tests for policy hooks."""
 
-from semarun.models.artifacts import ResumeArtifacts
-from semarun.models.checkpoint import Checkpoint
-from semarun.models.divergence import DivergenceMatrix
-from semarun.models.state import AgentState, RunStatus
-from semarun.policies.behavioral import BehavioralDriftPolicy
-from semarun.policies.builtin import FailFast, RevalidateWithPrompt, StrictReset
-from semarun.policies.contract import PolicyContext
+from semanticrun.models.artifacts import ResumeArtifacts
+from semanticrun.models.checkpoint import Checkpoint
+from semanticrun.models.divergence import DivergenceMatrix
+from semanticrun.models.state import AgentState, RunStatus
+from semanticrun.policies.behavioral import BehavioralDriftPolicy
+from semanticrun.policies.builtin import FailFast, RevalidateWithPrompt, StrictReset
+from semanticrun.policies.contract import PolicyContext
 
 
 def _ctx(flag: str = "model_id_changed") -> PolicyContext:

@@ -7,15 +7,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from semarun.checkpoint.engine import CheckpointEngine
-from semarun.checkpoint.triggers import CheckpointTrigger, should_checkpoint
-from semarun.kernel.divergence_matrix import build_divergence_matrix
-from semarun.kernel.ledger import SideEffectLedger
-from semarun.kernel.step_context import PlanStepHandle, StepContext
-from semarun.models.artifacts import ResumeArtifacts, ToolSchemaRef
-from semarun.models.checkpoint import Checkpoint
-from semarun.models.divergence import DivergenceMatrix
-from semarun.models.state import (
+from semanticrun.checkpoint.engine import CheckpointEngine
+from semanticrun.checkpoint.triggers import CheckpointTrigger, should_checkpoint
+from semanticrun.kernel.divergence_matrix import build_divergence_matrix
+from semanticrun.kernel.ledger import SideEffectLedger
+from semanticrun.kernel.step_context import PlanStepHandle, StepContext
+from semanticrun.models.artifacts import ResumeArtifacts, ToolSchemaRef
+from semanticrun.models.checkpoint import Checkpoint
+from semanticrun.models.divergence import DivergenceMatrix
+from semanticrun.models.state import (
     AgentState,
     ApprovalState,
     ApprovalStatus,
@@ -28,10 +28,10 @@ from semarun.models.state import (
     StepType,
     new_id,
 )
-from semarun.policies.contract import PolicyOutcome, PolicyRegistry
-from semarun.policies.errors import PolicyAbort
-from semarun.policies.mapping import PolicyMapping
-from semarun.resume.router import PolicyRouter
+from semanticrun.policies.contract import PolicyOutcome, PolicyRegistry
+from semanticrun.policies.errors import PolicyAbort
+from semanticrun.policies.mapping import PolicyMapping
+from semanticrun.resume.router import PolicyRouter
 
 
 class RunHandle:
@@ -268,7 +268,7 @@ class RunHandle:
         self._sync_run()
 
     def checkpoint(self, trigger: str | CheckpointTrigger = CheckpointTrigger.MANUAL) -> Checkpoint:
-        from semarun.kernel.artifact_diff import model_context_to_ref
+        from semanticrun.kernel.artifact_diff import model_context_to_ref
 
         model_id = model_context_to_ref(
             self._run.model_context.model_family,

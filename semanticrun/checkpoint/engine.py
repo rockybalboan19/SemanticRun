@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from semarun.models.artifacts import FileTreeSnapshot, ModelIdRef, ToolSchemaRef
-from semarun.models.checkpoint import Checkpoint
-from semarun.models.state import AgentState, ModelContext, RunStatus
-from semarun.policies.mapping import PolicyMapping
+from semanticrun.models.artifacts import FileTreeSnapshot, ModelIdRef, ToolSchemaRef
+from semanticrun.models.checkpoint import Checkpoint
+from semanticrun.models.state import AgentState, ModelContext, RunStatus
+from semanticrun.policies.mapping import PolicyMapping
 
 if TYPE_CHECKING:
-    from semarun.audit.log import AuditLog
-    from semarun.storage.base import StorageBackend
+    from semanticrun.audit.log import AuditLog
+    from semanticrun.storage.base import StorageBackend
 
 
 def build_summary(state: AgentState, status: RunStatus) -> str:

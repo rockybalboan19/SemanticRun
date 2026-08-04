@@ -1,10 +1,10 @@
 """SemanticRun - artifact-aware durable agent environment."""
 
-from semarun.kernel.ledger import ReplayVerdict, SideEffectLedger
-from semarun.kernel.run_handle import RunHandle
-from semarun.kernel.skip_rules import ActionClass, classify_action, skips_full_checkpoint
-from semarun.kernel.step_context import OutboundDivergenceError, PlanStepHandle, StepContext
-from semarun.models import (
+from semanticrun.kernel.ledger import ReplayVerdict, SideEffectLedger
+from semanticrun.kernel.run_handle import RunHandle
+from semanticrun.kernel.skip_rules import ActionClass, classify_action, skips_full_checkpoint
+from semanticrun.kernel.step_context import OutboundDivergenceError, PlanStepHandle, StepContext
+from semanticrun.models import (
     ActiveIntent,
     AgentState,
     Checkpoint,
@@ -15,10 +15,10 @@ from semarun.models import (
     RunStatus,
     ToolResultCommitment,
 )
-from semarun.policies.behavioral import BehavioralDriftPolicy
-from semarun.policies.builtin import FailFast, RevalidateWithPrompt, StrictReset
-from semarun.policies.errors import PolicyAbort
-from semarun.runtime import SemanticRun, SemarunRuntime
+from semanticrun.policies.behavioral import BehavioralDriftPolicy
+from semanticrun.policies.builtin import FailFast, RevalidateWithPrompt, StrictReset
+from semanticrun.policies.errors import PolicyAbort
+from semanticrun.runtime import SemanticRun
 
 __all__ = [
     "ActionClass",
@@ -39,7 +39,6 @@ __all__ = [
     "RunHandle",
     "RunStatus",
     "SemanticRun",
-    "SemarunRuntime",
     "SideEffectLedger",
     "StepContext",
     "StrictReset",

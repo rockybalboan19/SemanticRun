@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-from semarun.kernel.skip_rules import ActionClass, classify_action
+from semanticrun.kernel.skip_rules import ActionClass, classify_action
 
 
 class CheckpointTrigger(str, Enum):

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from semarun.policies.contract import PolicyContext, PolicyOutcome
+from semanticrun.policies.contract import PolicyContext, PolicyOutcome
 
 
 @dataclass

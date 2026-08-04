@@ -8,8 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from semarun.models.checkpoint import Checkpoint
-from semarun.models.state import RunRecord, RunStatus, SideEffectRecord, new_id
+from semanticrun.models.checkpoint import Checkpoint
+from semanticrun.models.state import RunRecord, RunStatus, SideEffectRecord, new_id
 
 
 def _serialize(obj: object) -> str:
@@ -19,7 +19,7 @@ def _serialize(obj: object) -> str:
 
 
 class SQLiteStorage:
-    def __init__(self, db_path: str = "semarun.db") -> None:
+    def __init__(self, db_path: str = "semanticrun.db") -> None:
         self._db_path = db_path
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
@@ -141,7 +141,7 @@ class SQLiteStorage:
         ).fetchone()
         if row is None:
             return None
-        from semarun.models.state import ModelContext
+        from semanticrun.models.state import ModelContext
 
         return RunRecord(
             id=row["id"],
