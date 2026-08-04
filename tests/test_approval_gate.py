@@ -24,11 +24,15 @@ def test_approve_resumes_run():
 
 
 def test_reject_flags_approval_change_on_resume():
+    from semarun.models.artifacts import ResumeArtifacts
+
     runtime = SemarunRuntime.in_memory()
     run = runtime.create_run(intent="reject test")
     run.request_approval("send_email")
     run.reject()
     resumed = runtime.resume(run.id)
-    matrix = resumed.compute_divergence_matrix()
+    matrix = resumed.compute_divergence_matrix(
+        ResumeArtifacts(approval_status="approved")
+    )
     assert matrix.approval_state_changed
     runtime.close()

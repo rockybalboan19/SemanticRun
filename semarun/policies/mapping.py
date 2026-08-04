@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, field_validator
 
 
 DEFAULT_POLICY_MAPPING: dict[str, str] = {
@@ -17,6 +17,22 @@ DEFAULT_POLICY_MAPPING: dict[str, str] = {
     "outbound_payload_divergence": "FailFast",
 }
 
+# Short aliases for launch API (normalized to registered hook names).
+HOOK_ALIASES: dict[str, str] = {
+    "fail_fast": "FailFast",
+    "FailFast": "FailFast",
+    "revalidate": "RevalidateWithPrompt",
+    "RevalidateWithPrompt": "RevalidateWithPrompt",
+    "strict_reset": "StrictReset",
+    "StrictReset": "StrictReset",
+    "behavioral_drift": "BehavioralDriftPolicy",
+    "BehavioralDriftPolicy": "BehavioralDriftPolicy",
+}
+
+
+def normalize_hook_name(name: str) -> str:
+    return HOOK_ALIASES.get(name, name)
+
 
 class PolicyMapping(BaseModel):
     tool_schema_changed: str = "RevalidateWithPrompt"
@@ -29,12 +45,34 @@ class PolicyMapping(BaseModel):
     behavioral_drift_flagged: str = "BehavioralDriftPolicy"
     outbound_payload_divergence: str = "FailFast"
 
+    @field_validator(
+        "tool_schema_changed",
+        "tool_result_hash_mismatch",
+        "file_tree_hash_mismatch",
+        "model_id_changed",
+        "intent_string_changed",
+        "plan_sequence_changed",
+        "approval_state_changed",
+        "behavioral_drift_flagged",
+        "outbound_payload_divergence",
+        mode="before",
+    )
+    @classmethod
+    def _normalize_hooks(cls, value: object) -> object:
+        if isinstance(value, str):
+            return normalize_hook_name(value)
+        return value
+
     def hook_for_flag(self, flag: str) -> str | None:
-        return getattr(self, flag, None)
+        raw = getattr(self, flag, None)
+        if raw is None:
+            return None
+        return normalize_hook_name(raw)
 
     def as_dict(self) -> dict[str, str]:
-        return self.model_dump()
+        return {k: normalize_hook_name(v) for k, v in self.model_dump().items()}
 
     @classmethod
     def from_dict(cls, data: dict[str, str]) -> PolicyMapping:
-        return cls.model_validate({**DEFAULT_POLICY_MAPPING, **data})
+        normalized = {k: normalize_hook_name(v) for k, v in data.items()}
+        return cls.model_validate({**DEFAULT_POLICY_MAPPING, **normalized})

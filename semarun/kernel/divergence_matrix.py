@@ -11,9 +11,6 @@ from semarun.kernel.artifact_diff import (
 from semarun.models.artifacts import ResumeArtifacts
 from semarun.models.checkpoint import Checkpoint
 from semarun.models.divergence import DivergenceMatrix
-from semarun.models.state import ApprovalStatus
-
-
 def build_divergence_matrix(
     checkpoint: Checkpoint,
     current: ResumeArtifacts,
@@ -21,32 +18,40 @@ def build_divergence_matrix(
     matrix = DivergenceMatrix()
     deltas: dict = {}
 
-    schema_changed, schema_deltas = diff_tool_schemas(
-        checkpoint.tool_schemas,
-        current.tool_schemas,
-    )
-    matrix.tool_schema_changed = schema_changed
-    if schema_deltas:
-        deltas["tool_schemas"] = schema_deltas
+    # Omitted resume fields mean "not compared" — empty dict/None is not "deleted".
+    if current.tool_schemas:
+        schema_changed, schema_deltas = diff_tool_schemas(
+            checkpoint.tool_schemas,
+            current.tool_schemas,
+        )
+        matrix.tool_schema_changed = schema_changed
+        if schema_deltas:
+            deltas["tool_schemas"] = schema_deltas
 
-    mismatches, tool_deltas = diff_tool_results(
-        checkpoint.tool_state,
-        current.tool_results,
-    )
-    matrix.tool_result_hash_mismatch = mismatches
-    if tool_deltas:
-        deltas["tool_results"] = tool_deltas
+    if current.tool_results:
+        mismatches, tool_deltas = diff_tool_results(
+            checkpoint.tool_state,
+            current.tool_results,
+        )
+        matrix.tool_result_hash_mismatch = mismatches
+        if tool_deltas:
+            deltas["tool_results"] = tool_deltas
 
-    file_changed, file_deltas = diff_file_trees(checkpoint.file_tree, current.file_tree)
-    matrix.file_tree_hash_mismatch = file_changed
-    if file_deltas:
-        deltas["file_tree"] = file_deltas
+    if current.file_tree is not None:
+        file_changed, file_deltas = diff_file_trees(
+            checkpoint.file_tree, current.file_tree
+        )
+        matrix.file_tree_hash_mismatch = file_changed
+        if file_deltas:
+            deltas["file_tree"] = file_deltas
 
-    current_model = current.model_id or checkpoint.model_id
-    model_changed, model_deltas = diff_model_ids(checkpoint.model_id, current_model)
-    matrix.model_id_changed = model_changed
-    if model_deltas:
-        deltas["model_id"] = model_deltas
+    if current.model_id is not None:
+        model_changed, model_deltas = diff_model_ids(
+            checkpoint.model_id, current.model_id
+        )
+        matrix.model_id_changed = model_changed
+        if model_deltas:
+            deltas["model_id"] = model_deltas
 
     if current.intent_text is not None:
         matrix.intent_string_changed = current.intent_text != checkpoint.intent
@@ -61,6 +66,8 @@ def build_divergence_matrix(
         if matrix.plan_sequence_changed:
             deltas["plan"] = {"checkpoint": checkpoint.plan, "current": current.plan}
 
+    # Only flag approval drift when the host supplies a current status to compare.
+    # A still-pending approval gate is a normal resume, not divergence.
     if current.approval_status is not None:
         ckpt_status = (
             checkpoint.approval_state.status.value
@@ -73,12 +80,6 @@ def build_divergence_matrix(
                 "checkpoint": ckpt_status,
                 "current": current.approval_status,
             }
-    elif checkpoint.approval_state and checkpoint.approval_state.status in (
-        ApprovalStatus.PENDING,
-        ApprovalStatus.REJECTED,
-    ):
-        matrix.approval_state_changed = True
-        deltas["approval"] = {"checkpoint": checkpoint.approval_state.status.value}
 
     matrix.behavioral_drift_flagged = current.behavioral_drift_flagged
     if current.behavioral_drift_flagged:

@@ -1,9 +1,9 @@
-"""Semarun - vendor-neutral mechanical state kernel for stochastic agent execution."""
+"""SemanticRun - artifact-aware durable agent environment."""
 
 from semarun.kernel.ledger import ReplayVerdict, SideEffectLedger
-from semarun.kernel.runtime import DaemonProxyRuntime, InflightBuffer
-from semarun.kernel.run_handle import RunHandle, StateMutationError
+from semarun.kernel.run_handle import RunHandle
 from semarun.kernel.skip_rules import ActionClass, classify_action, skips_full_checkpoint
+from semarun.kernel.step_context import OutboundDivergenceError, PlanStepHandle, StepContext
 from semarun.models import (
     ActiveIntent,
     AgentState,
@@ -17,7 +17,8 @@ from semarun.models import (
 )
 from semarun.policies.behavioral import BehavioralDriftPolicy
 from semarun.policies.builtin import FailFast, RevalidateWithPrompt, StrictReset
-from semarun.runtime import SemarunRuntime
+from semarun.policies.errors import PolicyAbort
+from semarun.runtime import SemanticRun, SemarunRuntime
 
 __all__ = [
     "ActionClass",
@@ -25,10 +26,11 @@ __all__ = [
     "AgentState",
     "BehavioralDriftPolicy",
     "Checkpoint",
-    "DaemonProxyRuntime",
     "DivergenceMatrix",
     "FailFast",
-    "InflightBuffer",
+    "OutboundDivergenceError",
+    "PlanStepHandle",
+    "PolicyAbort",
     "PolicyMapping",
     "PolicyOutcome",
     "ReplayVerdict",
@@ -36,13 +38,14 @@ __all__ = [
     "ResumeArtifacts",
     "RunHandle",
     "RunStatus",
+    "SemanticRun",
     "SemarunRuntime",
     "SideEffectLedger",
-    "StateMutationError",
+    "StepContext",
     "StrictReset",
     "ToolResultCommitment",
     "classify_action",
     "skips_full_checkpoint",
 ]
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -10,14 +11,15 @@ from semarun.checkpoint.engine import CheckpointEngine
 from semarun.checkpoint.triggers import CheckpointTrigger, should_checkpoint
 from semarun.kernel.divergence_matrix import build_divergence_matrix
 from semarun.kernel.ledger import SideEffectLedger
-from semarun.kernel.step_context import StepContext
-from semarun.models.artifacts import ResumeArtifacts
+from semarun.kernel.step_context import PlanStepHandle, StepContext
+from semarun.models.artifacts import ResumeArtifacts, ToolSchemaRef
 from semarun.models.checkpoint import Checkpoint
 from semarun.models.divergence import DivergenceMatrix
 from semarun.models.state import (
     AgentState,
     ApprovalState,
     ApprovalStatus,
+    FailureRecord,
     GreenCheckpointRef,
     ModelContext,
     PendingAction,
@@ -27,12 +29,9 @@ from semarun.models.state import (
     new_id,
 )
 from semarun.policies.contract import PolicyOutcome, PolicyRegistry
+from semarun.policies.errors import PolicyAbort
 from semarun.policies.mapping import PolicyMapping
 from semarun.resume.router import PolicyRouter
-
-
-class StateMutationError(RuntimeError):
-    pass
 
 
 class RunHandle:
@@ -51,8 +50,9 @@ class RunHandle:
         revalidation_template: str = "",
         assertions: list[str] | None = None,
         checkpoint_worker: Any = None,
-        snapshot_index: Any = None,
-        daemon_proxy: Any = None,
+        tool_schemas: dict[str, ToolSchemaRef] | None = None,
+        file_tree: Any = None,
+        pending_revalidations: list[dict[str, Any]] | None = None,
     ) -> None:
         self._run = run
         self._state = state
@@ -67,12 +67,14 @@ class RunHandle:
         self._revalidation_template = revalidation_template
         self._assertions = list(assertions or [])
         self._checkpoint_worker = checkpoint_worker
-        self._snapshot_index = snapshot_index
-        self._daemon_proxy = daemon_proxy
         self._active_step: StepContext | None = None
-        self._tool_schemas: dict = {}
-        self._file_tree = None
+        self._tool_schemas: dict[str, ToolSchemaRef] = dict(tool_schemas or {})
+        self._file_tree = file_tree
         self._resume_artifacts: ResumeArtifacts | None = None
+        self._pending_revalidations: list[dict[str, Any]] = list(
+            pending_revalidations or []
+        )
+        self._last_policy_outcomes: list[PolicyOutcome] = []
 
     @property
     def id(self) -> str:
@@ -94,8 +96,38 @@ class RunHandle:
     def model_context(self) -> ModelContext:
         return self._run.model_context
 
+    @property
+    def plan_index(self) -> int:
+        return self._state.plan_index
+
+    @property
+    def completed_steps(self) -> list[str]:
+        return list(self._state.completed_steps)
+
+    @property
+    def pending_revalidations(self) -> list[dict[str, Any]]:
+        return list(self._pending_revalidations)
+
+    @property
+    def last_policy_outcomes(self) -> list[PolicyOutcome]:
+        return list(self._last_policy_outcomes)
+
+    @property
+    def tool_schemas(self) -> dict[str, ToolSchemaRef]:
+        return dict(self._tool_schemas)
+
     def _sync_run(self) -> None:
         self._storage.update_run(self._run)
+
+    def hydrate_from_checkpoint(self, checkpoint: Checkpoint) -> None:
+        """Restore handle-local artifacts that live outside AgentState."""
+        self._tool_schemas = dict(checkpoint.tool_schemas)
+        self._file_tree = checkpoint.file_tree
+        self._run.model_context = checkpoint.model_context.model_copy(deep=True)
+        if checkpoint.state.green_checkpoint:
+            self._run.last_green_checkpoint_id = (
+                checkpoint.state.green_checkpoint.checkpoint_id
+            )
 
     def step(
         self,
@@ -104,11 +136,61 @@ class RunHandle:
         **metadata: Any,
     ) -> StepContext:
         st = StepType(step_type) if isinstance(step_type, str) else step_type
-        if "model" in metadata:
+        if "model" in metadata and metadata["model"]:
             parts = str(metadata["model"]).split("-", 1)
             self._run.model_context.model_family = parts[0]
             self._run.model_context.model_version = str(metadata["model"])
         return StepContext(self, st, name=name, metadata=metadata)
+
+    def steps(self) -> Iterator[PlanStepHandle]:
+        """Yield incomplete plan steps; completed cursor entries are skipped."""
+        plan = list(self._state.plan)
+        while self._state.plan_index < len(plan):
+            if self._run.status in (RunStatus.ABORTED, RunStatus.COMPLETED):
+                return
+            if self._run.status == RunStatus.WAITING_APPROVAL:
+                return
+            idx = self._state.plan_index
+            name = plan[idx]
+            if name in self._state.completed_steps:
+                self._state.plan_index = idx + 1
+                continue
+            handle = PlanStepHandle(self, name, idx)
+            yield handle
+            if self._run.status in (
+                RunStatus.ABORTED,
+                RunStatus.WAITING_APPROVAL,
+                RunStatus.PAUSED,
+            ):
+                return
+            if handle._failed:
+                return
+            if not handle._completed:
+                handle.complete()
+
+    def advance_cursor(self, step_name: str, index: int) -> None:
+        if step_name not in self._state.completed_steps:
+            self._state.completed_steps.append(step_name)
+        self._state.plan_index = max(self._state.plan_index, index + 1)
+        self.checkpoint(trigger=CheckpointTrigger.MANUAL)
+        self._audit.emit(
+            self._run.id,
+            "cursor_advanced",
+            {"step": step_name, "plan_index": self._state.plan_index},
+        )
+
+    def record_step_failure(self, step_name: str, error: str) -> None:
+        self._state.failure_history.append(
+            FailureRecord(step_name=step_name, error=error)
+        )
+        self._sync_run()
+
+    def clear_revalidation(self, tool_name: str) -> None:
+        self._pending_revalidations = [
+            item
+            for item in self._pending_revalidations
+            if tool_name not in item.get("tools_to_revalidate", [])
+        ]
 
     def _begin_step(self, ctx: StepContext) -> str:
         self._active_step = ctx
@@ -121,7 +203,13 @@ class RunHandle:
         )
         return step_id
 
-    def _end_step(self, ctx: StepContext, failed: bool) -> None:
+    def _end_step(
+        self,
+        ctx: StepContext,
+        failed: bool,
+        *,
+        memory_mutated: bool = False,
+    ) -> None:
         self._run.step_count += 1
         self._audit.emit(
             self._run.id,
@@ -145,6 +233,8 @@ class RunHandle:
             recovery_relevant=ctx.recovery_relevant,
         ):
             self._enqueue_checkpoint(CheckpointTrigger.SIDE_EFFECT_BOUNDARY)
+        elif ctx.step_type == StepType.LLM_CALL or memory_mutated:
+            self._enqueue_checkpoint(CheckpointTrigger.MANUAL)
         elif should_checkpoint(
             CheckpointTrigger.PERIODIC,
             step_count=self._run.step_count,
@@ -154,10 +244,12 @@ class RunHandle:
 
     def _enqueue_checkpoint(self, trigger: CheckpointTrigger) -> None:
         if self._checkpoint_worker is not None:
+            # Async path: enqueue then wait for durability before returning.
             self._checkpoint_worker.enqueue(
                 self._run.id,
                 lambda t=trigger: self.checkpoint(trigger=t),
             )
+            self._checkpoint_worker.drain()
         else:
             self.checkpoint(trigger=trigger)
 
@@ -224,7 +316,12 @@ class RunHandle:
         approval = self._storage.get_latest_approval(self._run.id)
         if approval:
             self._storage.update_approval(approval["id"], ApprovalStatus.APPROVED.value)
-        self._audit.emit(self._run.id, "approval_granted", {"action": self._state.approval_state.action})
+        self._audit.emit(
+            self._run.id,
+            "approval_granted",
+            {"action": self._state.approval_state.action},
+        )
+        self.checkpoint(trigger=CheckpointTrigger.APPROVAL_GATE)
         self._sync_run()
 
     def reject(self) -> None:
@@ -236,7 +333,11 @@ class RunHandle:
         approval = self._storage.get_latest_approval(self._run.id)
         if approval:
             self._storage.update_approval(approval["id"], ApprovalStatus.REJECTED.value)
-        self._audit.emit(self._run.id, "approval_rejected", {"action": self._state.approval_state.action})
+        self._audit.emit(
+            self._run.id,
+            "approval_rejected",
+            {"action": self._state.approval_state.action},
+        )
         self.checkpoint(trigger=CheckpointTrigger.APPROVAL_GATE)
         self._sync_run()
 
@@ -285,6 +386,52 @@ class RunHandle:
             assertions=self._assertions,
         )
 
+    def apply_policies(
+        self,
+        matrix: DivergenceMatrix | None = None,
+        current: ResumeArtifacts | None = None,
+    ) -> list[PolicyOutcome]:
+        """Route policies and enforce abort / strict reset / revalidate in-environment."""
+        outcomes = self.route_policies(matrix=matrix, current=current)
+        self._last_policy_outcomes = outcomes
+        for outcome in outcomes:
+            if outcome.action == "abort":
+                self._run.status = RunStatus.ABORTED
+                self.checkpoint()
+                self._audit.emit(
+                    self._run.id,
+                    "policy_enforced_abort",
+                    outcome.model_dump(mode="json"),
+                )
+                self._sync_run()
+                raise PolicyAbort(outcome)
+            if outcome.action == "load_checkpoint":
+                ckpt_id = outcome.payload.get("checkpoint_id")
+                if ckpt_id:
+                    self._load_green_checkpoint(str(ckpt_id))
+            if outcome.action == "run_assertions":
+                self._pending_revalidations.append(dict(outcome.payload))
+            if outcome.action == "halt_for_human":
+                self._run.status = RunStatus.PAUSED
+                self.checkpoint()
+                self._sync_run()
+        return outcomes
+
+    def _load_green_checkpoint(self, checkpoint_id: str) -> None:
+        ckpt = self._storage.get_checkpoint(checkpoint_id)
+        if ckpt is None:
+            raise RuntimeError(f"Green checkpoint not found: {checkpoint_id}")
+        self._state = ckpt.state.model_copy(deep=True)
+        self.hydrate_from_checkpoint(ckpt)
+        self._run.latest_checkpoint_id = ckpt.id
+        self._run.status = RunStatus.RUNNING
+        self._audit.emit(
+            self._run.id,
+            "strict_reset_applied",
+            {"checkpoint_id": checkpoint_id},
+        )
+        self._sync_run()
+
     def complete_step(self, action_name: str) -> None:
         self._state.pending_actions = [
             a for a in self._state.pending_actions if a.action != action_name
@@ -300,7 +447,7 @@ class RunHandle:
         return content
 
     def mark_resumed(self) -> None:
-        if self._run.status in (RunStatus.PAUSED, RunStatus.WAITING_APPROVAL):
+        if self._run.status == RunStatus.PAUSED:
             self._run.status = RunStatus.RUNNING
-            self._audit.emit(self._run.id, "run_resumed", {})
-            self._sync_run()
+        self._audit.emit(self._run.id, "run_resumed", {})
+        self._sync_run()

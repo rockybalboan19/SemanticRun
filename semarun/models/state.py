@@ -156,6 +156,8 @@ class AgentState(BaseModel):
     approval_state: ApprovalState | None = None
     failure_history: list[FailureRecord] = Field(default_factory=list)
     green_checkpoint: GreenCheckpointRef | None = None
+    plan_index: int = 0
+    completed_steps: list[str] = Field(default_factory=list)
 
     @property
     def intent(self) -> str:
