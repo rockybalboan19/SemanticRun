@@ -1,22 +1,19 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/rockybalboan19/SemanticRun/master/semanticrun-logo.png" alt="SemanticRun" width="360"/>
-</p>
+<div align="center">
 
-<p align="center">
-  <strong>Temporal replays code. LangGraph orchestrates graphs.<br/>SemanticRun freezes what your agent already committed — and resumes with proof of what drifted.</strong>
-</p>
+![SemanticRun](https://github.com/rockybalboan19/SemanticRun/raw/refs/heads/master/semanticrun-logo.png)
 
-<p align="center">
-  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+"/></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"/></a>
-  <a href="https://pypi.org/project/SemanticRun/"><img src="https://img.shields.io/pypi/v/SemanticRun.svg" alt="PyPI"/></a>
-  <img src="https://img.shields.io/badge/status-0.4.0-orange.svg" alt="Status: 0.4.0"/>
-</p>
+**Temporal replays code. LangGraph orchestrates graphs.**  
+**SemanticRun freezes what your agent already committed — and resumes with proof of what drifted.**
 
-<p align="center">
-  Artifact-aware durable agent environment for Python.<br/>
-  Survive crashes, human waits, model swaps, and tool drift — without redoing completed work or silently replaying side effects.
-</p>
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/SemanticRun.svg)](https://pypi.org/project/SemanticRun/)
+![Status](https://img.shields.io/badge/status-0.4.1-orange.svg)
+
+Artifact-aware durable agent environment for Python.  
+Survive crashes, human waits, model swaps, and tool drift — without redoing completed work or silently replaying side effects.
+
+</div>
 
 ```python
 from semanticrun import SemanticRun, PolicyMapping
