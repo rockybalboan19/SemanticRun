@@ -1,12 +1,13 @@
 # Publishes to PyPI automatically when you push a version tag (v0.4.0, v1.0.0, …).
 #
 # PyPI Trusted Publisher must match exactly:
-#   Owner:      rockybalboan19
-#   Repository: SemanticRun
-#   Workflow:   publish.yml
-#   Environment: (leave blank)
+#   Owner:       rockybalboan19
+#   Repository:  SemanticRun
+#   Workflow:    publish.yml
+#   Environment: pypi
 #
-# Configure at: https://pypi.org/manage/project/semarun/settings/publishing/
+# Configure at: https://pypi.org/manage/project/SemanticRun/settings/publishing/
+# GitHub Environment "pypi" must also exist on this repo (Settings → Environments).
 
 name: Publish to PyPI
 
@@ -37,6 +38,9 @@ jobs:
   publish:
     needs: test
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/SemanticRun/
     permissions:
       id-token: write
       contents: read

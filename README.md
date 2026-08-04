@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"/></a>
-  <a href="https://pypi.org/project/semarun/"><img src="https://img.shields.io/pypi/v/semarun.svg" alt="PyPI"/></a>
+  <a href="https://pypi.org/project/SemanticRun/"><img src="https://img.shields.io/pypi/v/SemanticRun.svg" alt="PyPI"/></a>
   <img src="https://img.shields.io/badge/status-0.4.0-orange.svg" alt="Status: 0.4.0"/>
 </p>
 
@@ -64,7 +64,9 @@ Not a Temporal or LangGraph plugin — the environment your agent runs in when t
 ## Install
 
 ```bash
-pip install semarun
+pip install SemanticRun
+# import stays: from semarun import SemanticRun
+
 # from source:
 pip install -e ".[dev]"
 pytest
