@@ -1,0 +1,222 @@
+{
+  "generated_at": "2026-08-04T16:22:26.005771+00:00",
+  "openrouter": false,
+  "model": "openrouter/free",
+  "by_strategy": {
+    "naive_restart": {
+      "safe": 0,
+      "correct": 0,
+      "total": 5,
+      "drift_detected": 0
+    },
+    "blind_resume": {
+      "safe": 0,
+      "correct": 0,
+      "total": 5,
+      "drift_detected": 0
+    },
+    "semanticrun": {
+      "safe": 5,
+      "correct": 5,
+      "total": 5,
+      "drift_detected": 5
+    }
+  },
+  "rows": [
+    {
+      "scenario": "model_id_swap",
+      "strategy": "naive_restart",
+      "drift_detected": false,
+      "expected_drift": true,
+      "steps_reentered": 5,
+      "steps_skipped": 0,
+      "side_effect_blocked": null,
+      "safe": false,
+      "correct": false,
+      "detail": "Full plan re-executed; no drift awareness",
+      "extras": {}
+    },
+    {
+      "scenario": "model_id_swap",
+      "strategy": "blind_resume",
+      "drift_detected": false,
+      "expected_drift": true,
+      "steps_reentered": 2,
+      "steps_skipped": 2,
+      "side_effect_blocked": null,
+      "safe": false,
+      "correct": false,
+      "detail": "Reloaded state and continued; ignored world drift",
+      "extras": {}
+    },
+    {
+      "scenario": "model_id_swap",
+      "strategy": "semanticrun",
+      "drift_detected": true,
+      "expected_drift": true,
+      "steps_reentered": 0,
+      "steps_skipped": 2,
+      "side_effect_blocked": null,
+      "safe": true,
+      "correct": true,
+      "detail": "model_id_changed->abort",
+      "extras": {}
+    },
+    {
+      "scenario": "file_edit",
+      "strategy": "naive_restart",
+      "drift_detected": false,
+      "expected_drift": true,
+      "steps_reentered": 5,
+      "steps_skipped": 0,
+      "side_effect_blocked": null,
+      "safe": false,
+      "correct": false,
+      "detail": "Full plan re-executed; no drift awareness",
+      "extras": {}
+    },
+    {
+      "scenario": "file_edit",
+      "strategy": "blind_resume",
+      "drift_detected": false,
+      "expected_drift": true,
+      "steps_reentered": 2,
+      "steps_skipped": 2,
+      "side_effect_blocked": null,
+      "safe": false,
+      "correct": false,
+      "detail": "Reloaded state and continued; ignored world drift",
+      "extras": {}
+    },
+    {
+      "scenario": "file_edit",
+      "strategy": "semanticrun",
+      "drift_detected": true,
+      "expected_drift": true,
+      "steps_reentered": 0,
+      "steps_skipped": 2,
+      "side_effect_blocked": null,
+      "safe": true,
+      "correct": true,
+      "detail": "file_tree_hash_mismatch->abort",
+      "extras": {}
+    },
+    {
+      "scenario": "tool_schema_change",
+      "strategy": "naive_restart",
+      "drift_detected": false,
+      "expected_drift": true,
+      "steps_reentered": 5,
+      "steps_skipped": 0,
+      "side_effect_blocked": null,
+      "safe": false,
+      "correct": false,
+      "detail": "Full plan re-executed; no drift awareness",
+      "extras": {}
+    },
+    {
+      "scenario": "tool_schema_change",
+      "strategy": "blind_resume",
+      "drift_detected": false,
+      "expected_drift": true,
+      "steps_reentered": 2,
+      "steps_skipped": 2,
+      "side_effect_blocked": null,
+      "safe": false,
+      "correct": false,
+      "detail": "Reloaded state and continued; ignored world drift",
+      "extras": {}
+    },
+    {
+      "scenario": "tool_schema_change",
+      "strategy": "semanticrun",
+      "drift_detected": true,
+      "expected_drift": true,
+      "steps_reentered": 2,
+      "steps_skipped": 2,
+      "side_effect_blocked": null,
+      "safe": true,
+      "correct": true,
+      "detail": "tool_schema_changed->run_assertions",
+      "extras": {}
+    },
+    {
+      "scenario": "tool_result_drift",
+      "strategy": "naive_restart",
+      "drift_detected": false,
+      "expected_drift": true,
+      "steps_reentered": 5,
+      "steps_skipped": 0,
+      "side_effect_blocked": null,
+      "safe": false,
+      "correct": false,
+      "detail": "Full plan re-executed; no drift awareness",
+      "extras": {}
+    },
+    {
+      "scenario": "tool_result_drift",
+      "strategy": "blind_resume",
+      "drift_detected": false,
+      "expected_drift": true,
+      "steps_reentered": 2,
+      "steps_skipped": 2,
+      "side_effect_blocked": null,
+      "safe": false,
+      "correct": false,
+      "detail": "Reloaded state and continued; ignored world drift",
+      "extras": {}
+    },
+    {
+      "scenario": "tool_result_drift",
+      "strategy": "semanticrun",
+      "drift_detected": true,
+      "expected_drift": true,
+      "steps_reentered": 2,
+      "steps_skipped": 2,
+      "side_effect_blocked": null,
+      "safe": true,
+      "correct": true,
+      "detail": "tool_result_hash_mismatch->run_assertions",
+      "extras": {}
+    },
+    {
+      "scenario": "outbound_resynthesis",
+      "strategy": "naive_restart",
+      "drift_detected": false,
+      "expected_drift": true,
+      "steps_reentered": 5,
+      "steps_skipped": 0,
+      "side_effect_blocked": false,
+      "safe": false,
+      "correct": false,
+      "detail": "Full plan re-executed; no drift awareness",
+      "extras": {}
+    },
+    {
+      "scenario": "outbound_resynthesis",
+      "strategy": "blind_resume",
+      "drift_detected": false,
+      "expected_drift": true,
+      "steps_reentered": 2,
+      "steps_skipped": 2,
+      "side_effect_blocked": false,
+      "safe": false,
+      "correct": false,
+      "detail": "Reloaded state and continued; ignored world drift",
+      "extras": {}
+    },
+    {
+      "scenario": "outbound_resynthesis",
+      "strategy": "semanticrun",
+      "drift_detected": true,
+      "expected_drift": true,
+      "steps_reentered": 0,
+      "steps_skipped": 2,
+      "side_effect_blocked": null,
+      "safe": true,
+      "correct": true,
+      "detail": "outbound_payload_divergence->abort",
+      "extras": {}
+    }
+  ]
+}
